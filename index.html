@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <title>Asset Tracker Pro</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-mark">AT</div>
+        <div>
+          <strong>Asset Tracker Pro</strong>
+          <span>DirecTV Asset Management</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Primary navigation">
+        <button class="nav-item active" data-view="dashboard">
+          <span class="nav-icon">⌂</span><span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-view="assets">
+          <span class="nav-icon">▣</span><span>Assets</span>
+        </button>
+        <button class="nav-item" data-view="accounts">
+          <span class="nav-icon">◎</span><span>Accounts</span>
+        </button>
+        <button class="nav-item" data-view="activations">
+          <span class="nav-icon">⚡</span><span>Activations</span><span class="nav-badge">4</span>
+        </button>
+        <button class="nav-item" data-view="labels">
+          <span class="nav-icon">▦</span><span>Labels</span>
+        </button>
+        <button class="nav-item" data-view="reports">
+          <span class="nav-icon">◫</span><span>Reports</span>
+        </button>
+        <button class="nav-item" data-view="settings">
+          <span class="nav-icon">⚙</span><span>Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="status-dot"></div>
+        <div><strong>System Ready</strong><span>Local development mode</span></div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div class="topbar-left">
+          <button class="menu-button" id="menuButton" aria-label="Toggle navigation">☰</button>
+          <div>
+            <p class="eyebrow">West Texas Operations</p>
+            <h1 id="pageTitle">Dashboard</h1>
+          </div>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="secondary-button" id="importAssetsButton">Import Assets</button>
+          <button class="primary-button" id="globalAddAssetButton">+ Add Asset</button>
+          <button class="profile-button" aria-label="User menu">EA</button>
+        </div>
+      </header>
+
+      <section class="view active" id="dashboardView">
+        <div class="welcome-panel">
+          <div>
+            <p class="eyebrow">Asset overview</p>
+            <h2>Everything you need, in one place.</h2>
+            <p>Track receivers, account assignments, activation requests, scans, and printable labels.</p>
+          </div>
+          <button class="primary-button" data-open-view="assets">View All Assets</button>
+        </div>
+
+        <section class="stat-grid">
+          <article class="stat-card">
+            <div class="stat-card-top"><span>Total Assets</span><span class="stat-icon blue">▣</span></div>
+            <strong id="totalAssetsStat">0</strong><small>All tracked equipment</small>
+          </article>
+          <article class="stat-card">
+            <div class="stat-card-top"><span>On Rent</span><span class="stat-icon green">✓</span></div>
+            <strong id="onRentStat">0</strong><small>Currently assigned</small>
+          </article>
+          <article class="stat-card">
+            <div class="stat-card-top"><span>Warehouse</span><span class="stat-icon purple">⌂</span></div>
+            <strong id="warehouseStat">0</strong><small>Available inventory</small>
+          </article>
+          <article class="stat-card">
+            <div class="stat-card-top"><span>Needs Attention</span><span class="stat-icon red">!</span></div>
+            <strong id="attentionStat">0</strong><small>Missing or under review</small>
+          </article>
+        </section>
+
+        <section class="dashboard-grid">
+          <article class="panel recent-assets">
+            <div class="panel-header">
+              <div><p class="eyebrow">Recently updated</p><h3>Asset Activity</h3></div>
+              <button class="text-button" data-open-view="assets">View all</button>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Asset</th><th>Account</th><th>Status</th><th>Location</th><th>Updated</th></tr></thead>
+                <tbody id="dashboardAssetRows"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <aside class="dashboard-side">
+            <article class="panel quick-actions">
+              <div class="panel-header"><div><p class="eyebrow">Shortcuts</p><h3>Quick Actions</h3></div></div>
+              <button class="quick-action" id="quickAddAsset">
+                <span class="quick-action-icon">＋</span>
+                <span><strong>Add a new asset</strong><small>Create a receiver record</small></span>
+              </button>
+              <button class="quick-action" id="quickImport">
+                <span class="quick-action-icon">⇧</span>
+                <span><strong>Import spreadsheet</strong><small>Upload Excel or CSV data</small></span>
+              </button>
+              <button class="quick-action" data-open-view="labels">
+                <span class="quick-action-icon">▦</span>
+                <span><strong>Print labels</strong><small>QR codes and barcodes</small></span>
+              </button>
+            </article>
+
+            <article class="panel alerts-panel">
+              <div class="panel-header">
+                <div><p class="eyebrow">Review needed</p><h3>Alerts</h3></div><span class="alert-count">3</span>
+              </div>
+              <div class="alert-item"><span class="alert-dot red-dot"></span><div><strong>Location mismatch</strong><small>One receiver was scanned outside its assigned area.</small></div></div>
+              <div class="alert-item"><span class="alert-dot yellow-dot"></span><div><strong>Activation waiting</strong><small>Four activation requests are pending review.</small></div></div>
+              <div class="alert-item"><span class="alert-dot blue-dot"></span><div><strong>Labels not printed</strong><small>Several imported assets do not have printed labels.</small></div></div>
+            </article>
+          </aside>
+        </section>
+      </section>
+
+      <section class="view" id="assetsView">
+        <div class="page-toolbar">
+          <div>
+            <p class="eyebrow">Inventory management</p>
+            <h2>Assets by Account</h2>
+            <p class="page-description">Assets are grouped by Account Number. On Rent and Off Rent are tracked separately from receiver status.</p>
+          </div>
+          <button class="primary-button" id="assetsAddButton">+ Add Asset</button>
+        </div>
+
+        <section class="asset-summary-grid">
+          <article class="mini-stat"><span>Showing</span><strong id="showingCount">0</strong></article>
+          <article class="mini-stat"><span>On Rent</span><strong id="onRentCount">0</strong></article>
+          <article class="mini-stat"><span>Off Rent</span><strong id="offRentCount">0</strong></article>
+          <article class="mini-stat"><span>Accounts</span><strong id="accountCount">0</strong></article>
+        </section>
+
+        <section class="panel asset-panel">
+          <div class="asset-controls">
+            <label class="search-field">
+              <span>⌕</span>
+              <input id="assetSearch" type="search" placeholder="Search assets, RID, serial, access card, account number...">
+            </label>
+
+            <select id="rentFilter" aria-label="Filter assets by rental state">
+              <option value="all">All Rental States</option>
+              <option value="On Rent">On Rent</option>
+              <option value="Off Rent">Off Rent</option>
+            </select>
+
+            <button class="secondary-button" id="clearFiltersButton">Clear</button>
+          </div>
+
+          <div class="account-groups" id="accountGroups"></div>
+
+          <div class="empty-state" id="assetEmptyState" hidden>
+            <strong>No matching assets</strong>
+            <span>Try changing the search or rental filter.</span>
+          </div>
+        </section>
+      </section>
+
+      <section class="view placeholder-view" id="placeholderView">
+        <div class="placeholder-card">
+          <span class="placeholder-icon">◆</span>
+          <h2 id="placeholderTitle">Accounts</h2>
+          <p>This section is connected to the navigation and ready for the next build phase.</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <div class="modal-backdrop" id="assetModalBackdrop" hidden>
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="assetModalTitle">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Asset record</p>
+          <h2 id="assetModalTitle">Add Asset</h2>
+        </div>
+        <button class="icon-button" id="closeAssetModal" aria-label="Close">×</button>
+      </div>
+
+      <form id="assetForm">
+        <input type="hidden" id="editingAssetId">
+
+        <div class="form-grid">
+          <label>
+            <span>Asset Number *</span>
+            <input id="assetNumberInput" required placeholder="43MTX5033HD">
+          </label>
+          <label>
+            <span>Model</span>
+            <input id="modelInput" placeholder="HR54-700">
+          </label>
+          <label>
+            <span>Receiver ID (RID)</span>
+            <input id="ridInput" placeholder="Receiver ID">
+          </label>
+          <label>
+            <span>Serial Number</span>
+            <input id="serialInput" placeholder="Serial number">
+          </label>
+          <label>
+            <span>Access Card</span>
+            <input id="accessCardInput" placeholder="Access card number">
+          </label>
+          <label>
+            <span>Account Number</span>
+            <input id="accountNumberInput" placeholder="Account number">
+          </label>
+          <label>
+            <span>Account Name</span>
+            <input id="accountNameInput" placeholder="Account name">
+          </label>
+          <label>
+            <span>Rental State</span>
+            <select id="rentStateInput">
+              <option>On Rent</option>
+              <option>Off Rent</option>
+            </select>
+          </label>
+          <label>
+            <span>Status</span>
+            <select id="assetStatusInput">
+              <option>Active</option>
+              <option>Warehouse</option>
+              <option>Deactivated</option>
+              <option>Missing</option>
+              <option>Pending</option>
+            </select>
+          </label>
+          <label>
+            <span>Location</span>
+            <input id="locationInput" placeholder="Office, yard, warehouse...">
+          </label>
+          <label class="full-width">
+            <span>Notes</span>
+            <textarea id="notesInput" rows="3" placeholder="Optional notes"></textarea>
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="secondary-button" id="cancelAssetModal">Cancel</button>
+          <button type="submit" class="primary-button">Save Asset</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <input type="file" id="importFileInput" accept=".csv,.xlsx,.xls" hidden>
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
