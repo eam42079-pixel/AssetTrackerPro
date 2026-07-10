@@ -1,286 +1,222 @@
-const STORAGE_KEY="assetTrackerPro.assets.v3";
+const KEYS={master:"atp.master.v5",accounts:"atp.accounts.v5",assignments:"atp.assignments.v5"};
 
-const starterAssets=[
-  {id:crypto.randomUUID(),assetNumber:"43MTX5033HD",model:"HR54-700",rid:"0349583945",serial:"A1B2C3D4",accessCard:"001234567890",accountNumber:"10024587",accountName:"Tanmar Rentals - Midland",rentState:"On Rent",status:"Active",location:"Midland Yard",labelsPrinted:true,notes:""},
-  {id:crypto.randomUUID(),assetNumber:"43MTX1168HD",model:"H25-500",rid:"0391172840",serial:"MTX11680",accessCard:"001234567893",accountNumber:"10024587",accountName:"Tanmar Rentals - Midland",rentState:"Off Rent",status:"Warehouse",location:"Midland Warehouse",labelsPrinted:false,notes:""},
-  {id:crypto.randomUUID(),assetNumber:"43HOB2147HD",model:"H24-700",rid:"0384412098",serial:"HOB77211",accessCard:"001234567891",accountNumber:"10039812",accountName:"Tanmar Rentals - Hobbs",rentState:"On Rent",status:"Pending",location:"Hobbs Office",labelsPrinted:false,notes:"Activation requested"},
-  {id:crypto.randomUUID(),assetNumber:"43CAR8812HD",model:"HR24-500",rid:"0357718204",serial:"CAR88291",accessCard:"001234567892",accountNumber:"10077421",accountName:"Carlsbad Operations",rentState:"Off Rent",status:"Missing",location:"Unknown",labelsPrinted:true,notes:"Location under review"}
+const seedMaster=[
+{id:crypto.randomUUID(),assetNumber:"43MTX5033HD",model:"HR54-700",accessCard:"001234567890",rid:"0349583945",serial:"A1B2C3D4",type:"Genie",rentState:"On Rent"},
+{id:crypto.randomUUID(),assetNumber:"43MTX1168HD",model:"H25-500",accessCard:"001234567893",rid:"0391172840",serial:"MTX11680",type:"HD",rentState:"Off Rent"},
+{id:crypto.randomUUID(),assetNumber:"43HOB2147HD",model:"H24-700",accessCard:"001234567891",rid:"0384412098",serial:"HOB77211",type:"HD",rentState:"On Rent"},
+{id:crypto.randomUUID(),assetNumber:"43CAR8812HD",model:"HR24-500",accessCard:"001234567892",rid:"0357718204",serial:"CAR88291",type:"DVR",rentState:"Off Rent"}
+];
+const seedAccounts=[
+{id:crypto.randomUUID(),number:"10024587",name:"Tanmar Rentals - Midland",location:"Midland",office:"Midland Yard"},
+{id:crypto.randomUUID(),number:"10039812",name:"Tanmar Rentals - Hobbs",location:"Hobbs",office:"Hobbs Office"},
+{id:crypto.randomUUID(),number:"10077421",name:"Carlsbad Operations",location:"Carlsbad",office:"Carlsbad Yard"}
 ];
 
-let assets=loadAssets();
-const navItems=document.querySelectorAll(".nav-item");
-const dashboardView=document.getElementById("dashboardView");
-const assetsView=document.getElementById("assetsView");
-const placeholderView=document.getElementById("placeholderView");
-const placeholderTitle=document.getElementById("placeholderTitle");
-const pageTitle=document.getElementById("pageTitle");
-const sidebar=document.getElementById("sidebar");
-const menuButton=document.getElementById("menuButton");
-const sidebarOverlay=document.getElementById("sidebarOverlay");
-const assetSearch=document.getElementById("assetSearch");
-const rentFilter=document.getElementById("rentFilter");
-const accountGroups=document.getElementById("accountGroups");
-const dashboardAssetRows=document.getElementById("dashboardAssetRows");
-const assetEmptyState=document.getElementById("assetEmptyState");
-const modalBackdrop=document.getElementById("assetModalBackdrop");
-const assetForm=document.getElementById("assetForm");
-const importFileInput=document.getElementById("importFileInput");
-const toast=document.getElementById("toast");
+let master=load(KEYS.master,seedMaster);
+let accounts=load(KEYS.accounts,seedAccounts);
+let assignments=load(KEYS.assignments,[
+{id:crypto.randomUUID(),assetId:master[0].id,accountId:accounts[0].id,assignedAt:new Date().toISOString()},
+{id:crypto.randomUUID(),assetId:master[1].id,accountId:accounts[0].id,assignedAt:new Date().toISOString()},
+{id:crypto.randomUUID(),assetId:master[2].id,accountId:accounts[1].id,assignedAt:new Date().toISOString()},
+{id:crypto.randomUUID(),assetId:master[3].id,accountId:accounts[2].id,assignedAt:new Date().toISOString()}
+]);
+let currentAccountId=null;
 
-const viewTitles={dashboard:"Dashboard",assets:"Assets",accounts:"Accounts",activations:"Activations",labels:"Labels",reports:"Reports",settings:"Settings"};
+function load(key,fallback){try{return JSON.parse(localStorage.getItem(key))||fallback}catch{return fallback}}
+function save(){localStorage.setItem(KEYS.master,JSON.stringify(master));localStorage.setItem(KEYS.accounts,JSON.stringify(accounts));localStorage.setItem(KEYS.assignments,JSON.stringify(assignments))}
+const $=id=>document.getElementById(id);
+const views={dashboard:$("dashboardView"),accounts:$("accountsView"),accountDetail:$("accountDetailView"),master:$("masterView"),placeholder:$("placeholderView")};
+const titles={dashboard:"Dashboard",accounts:"Accounts",master:"Master Registry",activations:"Activations",audit:"Audit Center",labels:"Labels",reports:"Reports",settings:"Settings"};
 
-function migrateAsset(asset){
-  return {
-    ...asset,
-    accountNumber:asset.accountNumber || "",
-    accountName:asset.accountName || asset.account || "Unassigned",
-    rentState:asset.rentState || (asset.status==="Warehouse" ? "Off Rent" : "On Rent")
-  };
+function showView(name){
+Object.values(views).forEach(v=>v.classList.remove("active"));
+if(name==="dashboard")views.dashboard.classList.add("active");
+else if(name==="accounts")views.accounts.classList.add("active");
+else if(name==="master")views.master.classList.add("active");
+else views.placeholder.classList.add("active");
+$("pageTitle").textContent=titles[name]||"Accounts";
+$("placeholderTitle").textContent=titles[name]||"Coming Soon";
+document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.view===name));
+closeSidebar();
+if(name==="dashboard")renderDashboard();
+if(name==="accounts")renderAccounts();
+if(name==="master")renderMaster();
 }
 
-function loadAssets(){
-  const current=localStorage.getItem(STORAGE_KEY);
-  if(current){
-    try{return JSON.parse(current).map(migrateAsset)}catch{}
-  }
-  const old=localStorage.getItem("assetTrackerPro.assets.v2");
-  if(old){
-    try{
-      const migrated=JSON.parse(old).map(migrateAsset);
-      localStorage.setItem(STORAGE_KEY,JSON.stringify(migrated));
-      return migrated;
-    }catch{}
-  }
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(starterAssets));
-  return [...starterAssets];
-}
-
-function saveAssets(){localStorage.setItem(STORAGE_KEY,JSON.stringify(assets))}
-function closeMobileSidebar(){sidebar.classList.remove("open");sidebarOverlay.classList.remove("show")}
-
-function showView(viewName){
-  pageTitle.textContent=viewTitles[viewName]||"Dashboard";
-  dashboardView.classList.toggle("active",viewName==="dashboard");
-  assetsView.classList.toggle("active",viewName==="assets");
-  const placeholder=!["dashboard","assets"].includes(viewName);
-  placeholderView.classList.toggle("active",placeholder);
-  if(placeholder)placeholderTitle.textContent=viewTitles[viewName];
-  navItems.forEach(item=>item.classList.toggle("active",item.dataset.view===viewName));
-  closeMobileSidebar();
-  if(viewName==="assets")renderAssets();
-}
-
-function statusClass(status){return `status status-${status.toLowerCase().replace(/\s+/g,"-")}`}
-function rentClass(rentState){return rentState==="On Rent"?"rent-badge rent-on":"rent-badge rent-off"}
+function assignedFor(accountId){return assignments.filter(a=>a.accountId===accountId)}
+function assignmentForAsset(assetId){return assignments.find(a=>a.assetId===assetId)}
+function assetById(id){return master.find(a=>a.id===id)}
+function accountById(id){return accounts.find(a=>a.id===id)}
+function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function toast(msg){$("toast").textContent=msg;$("toast").hidden=false;clearTimeout(toast.t);toast.t=setTimeout(()=>$("toast").hidden=true,2800)}
+function openModal(id){$(id).hidden=false}
+function closeModal(id){$(id).hidden=true}
 
 function renderDashboard(){
-  document.getElementById("totalAssetsStat").textContent=assets.length.toLocaleString();
-  document.getElementById("onRentStat").textContent=assets.filter(a=>a.rentState==="On Rent").length.toLocaleString();
-  document.getElementById("warehouseStat").textContent=assets.filter(a=>a.status==="Warehouse").length.toLocaleString();
-  document.getElementById("attentionStat").textContent=assets.filter(a=>["Missing","Deactivated","Pending"].includes(a.status)).length.toLocaleString();
-
-  dashboardAssetRows.innerHTML=assets.slice(0,4).map(asset=>`
-    <tr>
-      <td><strong>${escapeHtml(asset.assetNumber)}</strong><span>${escapeHtml(asset.model||"—")}</span></td>
-      <td>${escapeHtml(asset.accountNumber||"Unassigned")}<span>${escapeHtml(asset.accountName||"")}</span></td>
-      <td><span class="${rentClass(asset.rentState)}">${escapeHtml(asset.rentState)}</span></td>
-      <td>${escapeHtml(asset.location||"—")}</td>
-      <td>Recently</td>
-    </tr>`).join("");
+$("accountStat").textContent=accounts.length;
+$("assignedStat").textContent=assignments.length;
+$("offRentStat").textContent=assignments.filter(a=>assetById(a.assetId)?.rentState==="Off Rent").length;
+$("capacityStat").textContent=accounts.filter(a=>assignedFor(a.id).length>=20).length;
+$("dashboardAccounts").innerHTML=accounts.slice(0,6).map(a=>{
+const count=assignedFor(a.id).length;
+return `<button class="dashboard-account-row" data-open-account="${a.id}">
+<div><strong>${esc(a.number)}</strong><span>${esc(a.name)}</span></div>
+<div><strong>${count}/20</strong><span>Receivers</span></div>
+<div class="capacity-mini"><i style="width:${Math.min(count/20*100,100)}%"></i></div>
+</button>`}).join("");
 }
 
-function getFilteredAssets(){
-  const query=assetSearch.value.trim().toLowerCase();
-  const rental=rentFilter.value;
-  return assets.filter(asset=>{
-    const matchesRental=rental==="all"||asset.rentState===rental;
-    const haystack=[asset.assetNumber,asset.model,asset.rid,asset.serial,asset.accessCard,asset.accountNumber,asset.accountName,asset.location].join(" ").toLowerCase();
-    return matchesRental&&haystack.includes(query);
-  });
+function renderAccounts(){
+const q=$("accountSearch").value.trim().toLowerCase();
+const filtered=accounts.filter(a=>{
+  const accountText=[a.number,a.name,a.location,a.office].join(" ").toLowerCase();
+  const receiverText=assignedFor(a.id)
+    .map(assignment=>assetById(assignment.assetId))
+    .filter(Boolean)
+    .map(asset=>[
+      asset.assetNumber,
+      asset.serial,
+      asset.accessCard,
+      asset.rid,
+      asset.model
+    ].join(" "))
+    .join(" ")
+    .toLowerCase();
+
+  return `${accountText} ${receiverText}`.includes(q);
+});
+$("accountCardGrid").innerHTML=filtered.map(a=>{
+const list=assignedFor(a.id),on=list.filter(x=>assetById(x.assetId)?.rentState==="On Rent").length,off=list.length-on;
+return `<article class="account-card" data-open-account="${a.id}">
+<div class="account-card-top"><div><h3>${esc(a.number)}</h3><p>${esc(a.name)}</p></div><span class="capacity-pill ${list.length>=20?"full":""}">${list.length}/20</span></div>
+<p class="account-location">${esc(a.location||"No location")} · ${esc(a.office||"No office")}</p>
+<div class="account-card-metrics"><div><span>Assigned</span><strong>${list.length}</strong></div><div><span>On Rent</span><strong>${on}</strong></div><div><span>Off Rent</span><strong>${off}</strong></div></div>
+</article>`}).join("");
+$("accountEmpty").hidden=filtered.length!==0;
 }
 
-function groupAssets(items){
-  const groups=new Map();
-  for(const asset of items){
-    const key=asset.accountNumber?.trim() || "__unassigned__";
-    if(!groups.has(key)){
-      groups.set(key,{
-        accountNumber:key==="__unassigned__"?"Unassigned":asset.accountNumber,
-        accountName:key==="__unassigned__"?"Assets without an account":asset.accountName || "",
-        assets:[]
-      });
-    }
-    groups.get(key).assets.push(asset);
-  }
-  return [...groups.values()].sort((a,b)=>{
-    if(a.accountNumber==="Unassigned")return 1;
-    if(b.accountNumber==="Unassigned")return -1;
-    return a.accountNumber.localeCompare(b.accountNumber);
-  });
+function openAccount(id){
+currentAccountId=id;
+const a=accountById(id);if(!a)return;
+Object.values(views).forEach(v=>v.classList.remove("active"));views.accountDetail.classList.add("active");
+$("pageTitle").textContent="Account "+a.number;
+$("detailAccountNumber").textContent="Account "+a.number;
+$("detailAccountName").textContent=`${a.name} · ${a.location||"No location"} · ${a.office||"No office"}`;
+$("receiverSearch").value="";
+renderAccountDetail();
 }
 
-function renderAssets(){
-  const filtered=getFilteredAssets();
-  const groups=groupAssets(filtered);
-
-  document.getElementById("showingCount").textContent=filtered.length;
-  document.getElementById("onRentCount").textContent=assets.filter(a=>a.rentState==="On Rent").length;
-  document.getElementById("offRentCount").textContent=assets.filter(a=>a.rentState==="Off Rent").length;
-  document.getElementById("accountCount").textContent=new Set(assets.map(a=>a.accountNumber||"Unassigned")).size;
-
-  accountGroups.innerHTML=groups.map((group,index)=>{
-    const onRent=group.assets.filter(a=>a.rentState==="On Rent").length;
-    const offRent=group.assets.filter(a=>a.rentState==="Off Rent").length;
-    return `
-      <section class="account-group" data-group="${escapeHtml(group.accountNumber)}">
-        <button class="account-group-header" type="button">
-          <span class="account-heading">
-            <strong>Account ${escapeHtml(group.accountNumber)}</strong>
-            <span>${escapeHtml(group.accountName)}</span>
-          </span>
-          <span class="account-metrics">
-            <span class="account-metric">${group.assets.length} Assets</span>
-            <span class="account-metric">${onRent} On Rent</span>
-            <span class="account-metric">${offRent} Off Rent</span>
-          </span>
-          <span class="account-toggle">⌄</span>
-        </button>
-        <div class="account-group-body">
-          <div class="table-wrap">
-            <table class="asset-table">
-              <thead>
-                <tr>
-                  <th>Asset Number</th><th>Model</th><th>RID</th><th>Rental State</th><th>Status</th><th>Location</th><th>Labels</th><th></th>
-                </tr>
-              </thead>
-              <tbody>
-                ${group.assets.map(asset=>`
-                  <tr>
-                    <td><strong>${escapeHtml(asset.assetNumber)}</strong><span>Primary ID</span></td>
-                    <td>${escapeHtml(asset.model||"—")}</td>
-                    <td>${escapeHtml(asset.rid||"—")}</td>
-                    <td><span class="${rentClass(asset.rentState)}">${escapeHtml(asset.rentState)}</span></td>
-                    <td><span class="${statusClass(asset.status)}">${escapeHtml(asset.status)}</span></td>
-                    <td>${escapeHtml(asset.location||"—")}</td>
-                    <td><span class="label-state ${asset.labelsPrinted?"":"not-printed"}">${asset.labelsPrinted?"Printed":"Not printed"}</span></td>
-                    <td><div class="row-actions">
-                      <button class="small-button" data-action="labels" data-id="${asset.id}">Labels</button>
-                      <button class="small-button" data-action="edit" data-id="${asset.id}">Edit</button>
-                    </div></td>
-                  </tr>`).join("")}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>`;
-  }).join("");
-
-  assetEmptyState.hidden=filtered.length!==0;
-  renderDashboard();
+function renderAccountDetail(){
+const a=accountById(currentAccountId);if(!a)return;
+const list=assignedFor(a.id),assets=list.map(x=>assetById(x.assetId)).filter(Boolean);
+const q=$("receiverSearch").value.trim().toLowerCase();
+const filtered=assets.filter(x=>[x.assetNumber,x.model,x.accessCard,x.rid,x.serial].join(" ").toLowerCase().includes(q));
+const on=assets.filter(x=>x.rentState==="On Rent").length,off=assets.length-on;
+$("detailAssigned").textContent=assets.length;$("detailAvailable").textContent=Math.max(0,20-assets.length);$("detailOnRent").textContent=on;$("detailOffRent").textContent=off;
+$("capacityCopy").textContent=`${assets.length} of 20`;
+$("capacityFill").style.width=`${Math.min(assets.length/20*100,100)}%`;
+$("capacityFill").classList.toggle("full",assets.length>=20);
+$("capacityWarning").hidden=assets.length<20;
+$("addReceiverButton").disabled=assets.length>=20;
+$("receiverRows").innerHTML=filtered.map(x=>`<tr>
+<td><strong>${esc(x.assetNumber)}</strong></td><td>${esc(x.model||"—")}</td><td>${esc(x.accessCard||"—")}</td><td>${esc(x.rid||"—")}</td><td>${esc(x.serial||"—")}</td>
+<td><span class="rent-badge ${x.rentState==="On Rent"?"rent-on":"rent-off"}">${esc(x.rentState)}</span></td>
+<td><div class="row-actions"><button class="small-button" data-move="${x.id}">Move</button><button class="small-button danger" data-remove="${x.id}">Remove</button></div></td>
+</tr>`).join("");
+$("receiverEmpty").hidden=filtered.length!==0;
 }
 
-function openAssetModal(asset=null){
-  assetForm.reset();
-  document.getElementById("editingAssetId").value=asset?.id||"";
-  document.getElementById("assetModalTitle").textContent=asset?"Edit Asset":"Add Asset";
-  document.getElementById("assetNumberInput").value=asset?.assetNumber||"";
-  document.getElementById("modelInput").value=asset?.model||"";
-  document.getElementById("ridInput").value=asset?.rid||"";
-  document.getElementById("serialInput").value=asset?.serial||"";
-  document.getElementById("accessCardInput").value=asset?.accessCard||"";
-  document.getElementById("accountNumberInput").value=asset?.accountNumber||"";
-  document.getElementById("accountNameInput").value=asset?.accountName||"";
-  document.getElementById("rentStateInput").value=asset?.rentState||"On Rent";
-  document.getElementById("assetStatusInput").value=asset?.status||"Active";
-  document.getElementById("locationInput").value=asset?.location||"";
-  document.getElementById("notesInput").value=asset?.notes||"";
-  modalBackdrop.hidden=false;
-  setTimeout(()=>document.getElementById("assetNumberInput").focus(),0);
+function renderMaster(){
+const q=$("masterSearch").value.trim().toLowerCase();
+const filtered=master.filter(x=>[x.assetNumber,x.model,x.accessCard,x.rid,x.serial,x.type].join(" ").toLowerCase().includes(q));
+$("masterRows").innerHTML=filtered.map(x=>{
+const asn=assignmentForAsset(x.id),acct=asn?accountById(asn.accountId):null;
+return `<tr><td><strong>${esc(x.assetNumber)}</strong></td><td>${esc(x.model||"—")}</td><td>${esc(x.accessCard||"—")}</td><td>${esc(x.rid||"—")}</td><td>${esc(x.serial||"—")}</td><td>${acct?esc(acct.number):"Unassigned"}</td><td><button class="small-button" data-edit-master="${x.id}">Edit</button></td></tr>`}).join("");
 }
 
-function closeAssetModal(){modalBackdrop.hidden=true}
-
-function saveAssetFromForm(event){
-  event.preventDefault();
-  const id=document.getElementById("editingAssetId").value;
-  const assetNumber=document.getElementById("assetNumberInput").value.trim().toUpperCase();
-  if(!assetNumber)return;
-
-  const duplicate=assets.find(a=>a.assetNumber.toUpperCase()===assetNumber&&a.id!==id);
-  if(duplicate){showToast("That Asset Number already exists.");return}
-
-  const record={
-    id:id||crypto.randomUUID(),
-    assetNumber,
-    model:document.getElementById("modelInput").value.trim(),
-    rid:document.getElementById("ridInput").value.trim(),
-    serial:document.getElementById("serialInput").value.trim(),
-    accessCard:document.getElementById("accessCardInput").value.trim(),
-    accountNumber:document.getElementById("accountNumberInput").value.trim(),
-    accountName:document.getElementById("accountNameInput").value.trim()||"Unassigned",
-    rentState:document.getElementById("rentStateInput").value,
-    status:document.getElementById("assetStatusInput").value,
-    location:document.getElementById("locationInput").value.trim(),
-    notes:document.getElementById("notesInput").value.trim(),
-    labelsPrinted:id?(assets.find(a=>a.id===id)?.labelsPrinted??false):false
-  };
-
-  if(id){assets=assets.map(a=>a.id===id?record:a);showToast("Asset updated.")}
-  else{assets.unshift(record);showToast("Asset added.")}
-
-  saveAssets();closeAssetModal();renderAssets();showView("assets");
+function openAccountForm(account=null){
+$("accountForm").reset();$("accountEditId").value=account?.id||"";$("accountModalTitle").textContent=account?"Edit Account":"Add Account";
+$("accountNumberInput").value=account?.number||"";$("accountNameInput").value=account?.name||"";$("accountLocationInput").value=account?.location||"";$("accountOfficeInput").value=account?.office||"";
+openModal("accountModal");
 }
 
-function showToast(message){
-  toast.textContent=message;toast.hidden=false;
-  clearTimeout(showToast.timer);
-  showToast.timer=setTimeout(()=>toast.hidden=true,2600);
-}
-
-function escapeHtml(value){
-  return String(value??"").replace(/[&<>"']/g,char=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[char]));
-}
-
-navItems.forEach(item=>item.addEventListener("click",()=>showView(item.dataset.view)));
-document.querySelectorAll("[data-open-view]").forEach(button=>button.addEventListener("click",()=>showView(button.dataset.openView)));
-menuButton.addEventListener("click",()=>{sidebar.classList.toggle("open");sidebarOverlay.classList.toggle("show")});
-sidebarOverlay.addEventListener("click",closeMobileSidebar);
-window.addEventListener("resize",()=>{if(window.innerWidth>860)closeMobileSidebar()});
-
-["globalAddAssetButton","assetsAddButton","quickAddAsset"].forEach(id=>document.getElementById(id).addEventListener("click",()=>openAssetModal()));
-["closeAssetModal","cancelAssetModal"].forEach(id=>document.getElementById(id).addEventListener("click",closeAssetModal));
-modalBackdrop.addEventListener("click",event=>{if(event.target===modalBackdrop)closeAssetModal()});
-assetForm.addEventListener("submit",saveAssetFromForm);
-
-assetSearch.addEventListener("input",renderAssets);
-rentFilter.addEventListener("change",renderAssets);
-document.getElementById("clearFiltersButton").addEventListener("click",()=>{
-  assetSearch.value="";rentFilter.value="all";renderAssets();
+$("accountForm").addEventListener("submit",e=>{
+e.preventDefault();const id=$("accountEditId").value,number=$("accountNumberInput").value.trim(),name=$("accountNameInput").value.trim();
+if(accounts.some(a=>a.number===number&&a.id!==id)){toast("That Account Number already exists.");return}
+const rec={id:id||crypto.randomUUID(),number,name,location:$("accountLocationInput").value.trim(),office:$("accountOfficeInput").value.trim()};
+accounts=id?accounts.map(a=>a.id===id?rec:a):[...accounts,rec];save();closeModal("accountModal");renderAccounts();renderDashboard();if(id)openAccount(id);else openAccount(rec.id);
 });
 
-accountGroups.addEventListener("click",event=>{
-  const header=event.target.closest(".account-group-header");
-  if(header){
-    header.closest(".account-group").classList.toggle("collapsed");
-    return;
-  }
-  const button=event.target.closest("[data-action]");
-  if(!button)return;
-  const asset=assets.find(a=>a.id===button.dataset.id);
-  if(!asset)return;
-  if(button.dataset.action==="edit")openAssetModal(asset);
-  if(button.dataset.action==="labels"){
-    asset.labelsPrinted=true;saveAssets();renderAssets();
-    showToast(`Label marked printed for ${asset.assetNumber}.`);
-  }
+function openAssign(){
+if(assignedFor(currentAccountId).length>=20){toast("This account already has 20 receivers.");return}
+$("assignForm").reset();$("lookupResult").hidden=true;openModal("assignModal");setTimeout(()=>$("assignAssetInput").focus(),0);
+}
+$("assignAssetInput").addEventListener("input",()=>{
+const value=$("assignAssetInput").value.trim().toUpperCase(),asset=master.find(x=>x.assetNumber.toUpperCase()===value);
+if(!value){$("lookupResult").hidden=true;return}
+$("lookupResult").hidden=false;
+if(asset){const existing=assignmentForAsset(asset.id);$("lookupResult").className="lookup-result";$("lookupResult").innerHTML=`<strong>${esc(asset.assetNumber)} · ${esc(asset.model||"No model")}</strong><span>Card: ${esc(asset.accessCard||"—")} · RID: ${esc(asset.rid||"—")}${existing?` · Currently in Account ${esc(accountById(existing.accountId)?.number||"")}`:""}</span>`}
+else{$("lookupResult").className="lookup-result lookup-missing";$("lookupResult").innerHTML="<strong>Receiver not found in Master Registry</strong><span>Submitting will open a new Master Receiver form and then assign it to this account.</span>"}
 });
 
-function openImporter(){importFileInput.value="";importFileInput.click()}
-["importAssetsButton","quickImport"].forEach(id=>document.getElementById(id).addEventListener("click",openImporter));
-importFileInput.addEventListener("change",event=>{
-  const file=event.target.files[0];
-  if(file)showToast(`${file.name} selected. Full Excel/CSV mapping comes in the next import build.`);
+$("assignForm").addEventListener("submit",e=>{
+e.preventDefault();const value=$("assignAssetInput").value.trim().toUpperCase();let asset=master.find(x=>x.assetNumber.toUpperCase()===value);
+if(!asset){closeModal("assignModal");openMasterForm(null,value,true);return}
+const existing=assignmentForAsset(asset.id);
+if(existing){const acct=accountById(existing.accountId);toast(`Receiver is already assigned to Account ${acct?.number||""}. Use Move instead.`);return}
+assignments.push({id:crypto.randomUUID(),assetId:asset.id,accountId:currentAccountId,assignedAt:new Date().toISOString()});save();closeModal("assignModal");renderAccountDetail();renderDashboard();toast("Receiver added to account.");
 });
 
-renderDashboard();
-renderAssets();
+function openMasterForm(asset=null,prefill="",assignAfter=false){
+$("masterForm").reset();$("masterEditId").value=asset?.id||"";$("assignAfterMaster").value=assignAfter?"yes":"no";$("masterModalTitle").textContent=asset?"Edit Master Receiver":"Add Receiver to Master";
+$("masterAssetInput").value=asset?.assetNumber||prefill;$("masterModelInput").value=asset?.model||"";$("masterCardInput").value=asset?.accessCard||"";$("masterRidInput").value=asset?.rid||"";$("masterSerialInput").value=asset?.serial||"";$("masterTypeInput").value=asset?.type||"";openModal("masterModal");
+}
+
+$("masterForm").addEventListener("submit",e=>{
+e.preventDefault();const id=$("masterEditId").value,assetNumber=$("masterAssetInput").value.trim().toUpperCase();
+if(master.some(x=>x.assetNumber.toUpperCase()===assetNumber&&x.id!==id)){toast("That Asset Number already exists in the Master Registry.");return}
+const existing=master.find(x=>x.id===id);
+const rec={id:id||crypto.randomUUID(),assetNumber,model:$("masterModelInput").value.trim(),accessCard:$("masterCardInput").value.trim(),rid:$("masterRidInput").value.trim(),serial:$("masterSerialInput").value.trim(),type:$("masterTypeInput").value.trim(),rentState:existing?.rentState||"Off Rent"};
+master=id?master.map(x=>x.id===id?rec:x):[...master,rec];
+if($("assignAfterMaster").value==="yes"&&!assignmentForAsset(rec.id))assignments.push({id:crypto.randomUUID(),assetId:rec.id,accountId:currentAccountId,assignedAt:new Date().toISOString()});
+save();closeModal("masterModal");renderMaster();renderDashboard();if(currentAccountId)renderAccountDetail();toast(id?"Master receiver updated.":"Receiver added to Master Registry.");
+});
+
+function openMove(assetId){
+$("moveAssetId").value=assetId;
+const current=assignmentForAsset(assetId);
+$("moveAccountSelect").innerHTML=accounts.filter(a=>a.id!==current?.accountId).map(a=>`<option value="${a.id}" ${assignedFor(a.id).length>=20?"disabled":""}>${esc(a.number)} — ${esc(a.name)} (${assignedFor(a.id).length}/20)</option>`).join("");
+if(!$("moveAccountSelect").options.length){toast("No other account is available.");return}
+openModal("moveModal");
+}
+$("moveForm").addEventListener("submit",e=>{
+e.preventDefault();const assetId=$("moveAssetId").value,target=$("moveAccountSelect").value;
+if(assignedFor(target).length>=20){toast("The destination account already has 20 receivers.");return}
+const asn=assignmentForAsset(assetId);if(asn)asn.accountId=target;save();closeModal("moveModal");renderAccountDetail();renderDashboard();toast("Receiver moved to the selected account.");
+});
+
+document.querySelectorAll(".nav-item").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.view)));
+document.querySelectorAll("[data-open-view]").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.openView)));
+document.querySelectorAll("[data-close]").forEach(b=>b.addEventListener("click",()=>closeModal(b.dataset.close)));
+document.querySelectorAll(".modal-backdrop").forEach(m=>m.addEventListener("click",e=>{if(e.target===m)m.hidden=true}));
+$("globalNewAccount").onclick=$("accountsNewButton").onclick=$("quickNewAccount").onclick=()=>openAccountForm();
+$("backToAccounts").onclick=()=>showView("accounts");
+$("editAccountButton").onclick=()=>openAccountForm(accountById(currentAccountId));
+$("addReceiverButton").onclick=openAssign;
+$("masterAddButton").onclick=()=>openMasterForm();
+$("openMasterImport").onclick=()=>toast("Master CSV import comes after this account workflow is approved.");
+$("accountSearch").oninput=renderAccounts;
+$("receiverSearch").oninput=renderAccountDetail;
+$("masterSearch").oninput=renderMaster;
+$("accountCardGrid").addEventListener("click",e=>{const card=e.target.closest("[data-open-account]");if(card)openAccount(card.dataset.openAccount)});
+$("dashboardAccounts").addEventListener("click",e=>{const row=e.target.closest("[data-open-account]");if(row)openAccount(row.dataset.openAccount)});
+$("receiverRows").addEventListener("click",e=>{
+const move=e.target.closest("[data-move]"),remove=e.target.closest("[data-remove]");
+if(move)openMove(move.dataset.move);
+if(remove&&confirm("Remove this receiver from the account? It will remain in the Master Registry.")){assignments=assignments.filter(a=>a.assetId!==remove.dataset.remove);save();renderAccountDetail();renderDashboard();toast("Receiver removed from account and kept in Master Registry.")}
+});
+$("masterRows").addEventListener("click",e=>{const btn=e.target.closest("[data-edit-master]");if(btn)openMasterForm(assetById(btn.dataset.editMaster))});
+$("menuButton").onclick=()=>{$("sidebar").classList.toggle("open");$("sidebarOverlay").classList.toggle("show")};
+$("sidebarOverlay").onclick=closeSidebar;
+function closeSidebar(){$("sidebar").classList.remove("open");$("sidebarOverlay").classList.remove("show")}
+renderDashboard();renderAccounts();renderMaster();
