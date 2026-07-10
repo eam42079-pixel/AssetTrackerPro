@@ -45,7 +45,7 @@
           </div>
         </div>
         <div class="topbar-actions">
-          <button class="secondary-button" id="openMasterImport">Import Master</button>
+          <button class="secondary-button" id="openMasterImport">Import Center</button>
           <button class="primary-button" id="globalNewAccount">+ Add Account</button>
           <button class="profile-button">EA</button>
         </div>
@@ -95,12 +95,18 @@
           <button class="primary-button" id="accountsNewButton">+ Add Account</button>
         </div>
 
-        <div class="account-toolbar">
-          <label class="search-field"><span>⌕</span><input id="accountSearch" type="search" placeholder="Search account, asset number, serial, card, or RID..."></label>
-          <div class="account-search-note">Receiver searches return the account where that receiver is currently assigned.</div>
+        <div class="account-toolbar account-toolbar-row">
+          <div class="account-search-wrap">
+            <label class="search-field"><span>⌕</span><input id="accountSearch" type="search" placeholder="Search account, asset number, serial, card, or RID..."></label>
+            <div class="account-search-note">Receiver searches expand the account where the receiver is currently assigned.</div>
+          </div>
+          <div class="account-expand-actions">
+            <button class="secondary-button" id="expandAllAccounts">Expand All</button>
+            <button class="secondary-button" id="collapseAllAccounts">Collapse All</button>
+          </div>
         </div>
 
-        <div class="account-card-grid" id="accountCardGrid"></div>
+        <div class="account-row-list" id="accountCardGrid"></div>
         <div class="empty-state standalone" id="accountEmpty" hidden><strong>No accounts found</strong><span>Create a new account or change your search.</span></div>
       </section>
 
@@ -114,6 +120,7 @@
           </div>
           <div class="detail-actions">
             <button class="secondary-button" id="editAccountButton">Edit Account</button>
+            <button class="secondary-button" id="importAccountReceiversButton">Import Receivers</button>
             <button class="primary-button" id="addReceiverButton">+ Add Receiver</button>
           </div>
         </div>
@@ -170,8 +177,58 @@
         </section>
       </section>
 
+      <section class="view" id="auditView">
+        <div class="page-toolbar">
+          <div>
+            <p class="eyebrow">DirecTV reconciliation</p>
+            <h2>Audit Center</h2>
+            <p class="page-description">Import the current DirecTV audit and compare active receivers against the receivers assigned to each account in the app.</p>
+          </div>
+          <button class="primary-button" id="importAuditButton">Import Audit File</button>
+        </div>
+
+        <section class="audit-summary-grid">
+          <article class="mini-stat"><span>Accounts Checked</span><strong id="auditAccountsChecked">0</strong></article>
+          <article class="mini-stat"><span>Perfect Matches</span><strong id="auditPerfectMatches">0</strong></article>
+          <article class="mini-stat"><span>Accounts with Issues</span><strong id="auditIssueAccounts">0</strong></article>
+          <article class="mini-stat"><span>Unmatched Receivers</span><strong id="auditUnmatchedReceivers">0</strong></article>
+        </section>
+
+        <section class="panel audit-panel">
+          <div class="panel-header">
+            <div>
+              <p class="eyebrow">Latest comparison</p>
+              <h3 id="auditFileLabel">No audit imported</h3>
+            </div>
+            <button class="secondary-button" id="clearAuditButton" disabled>Clear Results</button>
+          </div>
+
+          <div class="audit-empty" id="auditEmptyState">
+            <span class="placeholder-icon">⇄</span>
+            <h3>Import a DirecTV audit file</h3>
+            <p>The audit is matched to account assignments using Account Number plus Access Card and RID. The Master Registry is not used as the comparison list.</p>
+          </div>
+
+          <div id="auditResults" hidden>
+            <div class="audit-filter-row">
+              <label class="search-field">
+                <span>⌕</span>
+                <input id="auditSearch" type="search" placeholder="Search account number, account name, card, or RID...">
+              </label>
+              <select id="auditStatusFilter">
+                <option value="all">All Results</option>
+                <option value="perfect">Perfect Matches</option>
+                <option value="issues">Accounts with Issues</option>
+              </select>
+            </div>
+
+            <div class="audit-account-list" id="auditAccountList"></div>
+          </div>
+        </section>
+      </section>
+
       <section class="view placeholder-view" id="placeholderView">
-        <div class="placeholder-card"><span class="placeholder-icon">◆</span><h2 id="placeholderTitle">Audit Center</h2><p>This section is connected and ready for the next build.</p></div>
+        <div class="placeholder-card"><span class="placeholder-icon">◆</span><h2 id="placeholderTitle">Coming Soon</h2><p>This section is connected and ready for the next build.</p></div>
       </section>
     </main>
   </div>
@@ -235,7 +292,203 @@
     </section>
   </div>
 
+  <div class="modal-backdrop" id="accountImportModal" hidden>
+    <section class="modal import-modal">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">Bulk account setup</p>
+          <h2>Import Receivers to Account</h2>
+        </div>
+        <button class="icon-button" data-close="accountImportModal">×</button>
+      </div>
+
+      <div class="import-body">
+        <section id="accountImportStart">
+          <div class="import-instructions">
+            <h3>Upload a CSV for this account</h3>
+            <p>The file may include Asset Number, Model, Access Card, RID, Serial Number, and Receiver Type. Existing Master Registry records are reused. New receivers are added to the Master Registry automatically.</p>
+            <p class="import-rule">The account cannot exceed 20 assigned receivers.</p>
+          </div>
+
+          <button class="primary-button" id="chooseAccountImportFile">Choose CSV File</button>
+        </section>
+
+        <section id="accountImportPreview" hidden>
+          <div class="import-preview-header">
+            <div>
+              <p class="eyebrow">Import preview</p>
+              <h3 id="accountImportFileName">File name</h3>
+            </div>
+            <button class="secondary-button" id="cancelAccountImportPreview">Cancel</button>
+          </div>
+
+          <div class="import-summary-grid">
+            <article><span>Rows Read</span><strong id="accountImportRows">0</strong></article>
+            <article><span>New to Master</span><strong id="accountImportNew">0</strong></article>
+            <article><span>Ready to Assign</span><strong id="accountImportReady">0</strong></article>
+            <article><span>Warnings</span><strong id="accountImportWarnings">0</strong></article>
+          </div>
+
+          <div class="import-message" id="accountImportMessage"></div>
+
+          <div class="table-wrap import-preview-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Asset</th>
+                  <th>Master Registry</th>
+                  <th>Assignment</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody id="accountImportPreviewRows"></tbody>
+            </table>
+          </div>
+
+          <div class="modal-actions">
+            <button class="secondary-button" id="backToAccountImportStart">Back</button>
+            <button class="primary-button" id="applyAccountImport">Apply Import</button>
+          </div>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <input type="file" id="accountImportFileInput" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" hidden>
+  <div class="modal-backdrop" id="auditImportModal" hidden>
+    <section class="modal import-modal">
+      <div class="modal-header">
+        <div>
+          <p class="eyebrow">DirecTV reconciliation</p>
+          <h2>Import Audit File</h2>
+        </div>
+        <button class="icon-button" data-close="auditImportModal">×</button>
+      </div>
+
+      <div class="import-body">
+        <section id="auditImportStart">
+          <div class="import-instructions">
+            <h3>Choose the current DirecTV audit file</h3>
+            <p>The file should contain Account Number and at least one receiver identifier: Access Card or RID. The app compares the audit only against receivers currently assigned to each account.</p>
+            <p class="import-rule">A perfect account must have the same count and the same receivers on both sides.</p>
+          </div>
+          <button class="primary-button" id="chooseAuditFile">Choose Audit File</button>
+        </section>
+
+        <section id="auditImportPreview" hidden>
+          <div class="import-preview-header">
+            <div>
+              <p class="eyebrow">Audit preview</p>
+              <h3 id="auditImportFileName">File name</h3>
+            </div>
+            <button class="secondary-button" id="cancelAuditPreview">Cancel</button>
+          </div>
+
+          <div class="import-summary-grid">
+            <article><span>Rows Read</span><strong id="auditRowsRead">0</strong></article>
+            <article><span>Accounts Found</span><strong id="auditAccountsFound">0</strong></article>
+            <article><span>Valid Rows</span><strong id="auditValidRows">0</strong></article>
+            <article><span>Skipped Rows</span><strong id="auditSkippedRows">0</strong></article>
+          </div>
+
+          <div class="import-message" id="auditImportMessage"></div>
+
+          <div class="table-wrap import-preview-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Account</th>
+                  <th>Access Card</th>
+                  <th>RID</th>
+                  <th>Preview Result</th>
+                </tr>
+              </thead>
+              <tbody id="auditImportPreviewRows"></tbody>
+            </table>
+          </div>
+
+          <div class="modal-actions">
+            <button class="secondary-button" id="backToAuditStart">Back</button>
+            <button class="primary-button" id="runAuditButton">Run Audit</button>
+          </div>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <input type="file" id="auditFileInput" accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv" hidden>
+
+  <div class="modal-backdrop" id="dataImportModal" hidden>
+    <section class="modal import-modal">
+      <div class="modal-header">
+        <div><p class="eyebrow">Receiver data management</p><h2>Import Center</h2></div>
+        <button class="icon-button" data-close="dataImportModal">×</button>
+      </div>
+      <div class="import-body">
+        <section id="dataImportChoices">
+          <div class="import-choice-grid">
+            <article class="import-choice">
+              <span class="import-choice-icon">▣</span>
+              <h3>Master Registry XLSX</h3>
+              <p>Import permanent receiver information from the <strong>Master</strong> sheet. Account assignments are preserved.</p>
+              <button class="primary-button" id="chooseMasterXlsx">Choose XLSX</button>
+            </article>
+            <article class="import-choice">
+              <span class="import-choice-icon">◎</span>
+              <h3>West Texas XLSX</h3>
+              <p>Import accounts and assigned receivers from the <strong>West Texas</strong> sheet. Missing receivers are added to Master.</p>
+              <button class="primary-button" id="chooseWtxXlsx">Choose XLSX</button>
+            </article>
+            <article class="import-choice">
+              <span class="import-choice-icon">↻</span>
+              <h3>TQ Report CSV</h3>
+              <p>Daily update that changes only <strong>On Rent / Off Rent</strong>. Company-wide rows outside the local Master Registry are ignored.</p>
+              <button class="primary-button" id="chooseTqCsv">Choose CSV</button>
+            </article>
+          </div>
+
+          <div class="reset-data-panel">
+            <div>
+              <p class="eyebrow">Testing tools</p>
+              <h3>Clear App Data</h3>
+              <p>Remove all accounts, assignments, Master Registry records, audit results, and test entries so you can begin with imported data only.</p>
+            </div>
+            <button class="danger-button" id="clearAllAppData">Clear All App Data</button>
+          </div>
+        </section>
+
+        <section id="dataImportPreview" hidden>
+          <div class="import-preview-header">
+            <div><p class="eyebrow" id="dataImportType">Import preview</p><h3 id="dataImportFileName">File</h3></div>
+            <button class="secondary-button" id="cancelDataImport">Cancel</button>
+          </div>
+          <div class="import-summary-grid">
+            <article><span>Rows Read</span><strong id="dataRowsRead">0</strong></article>
+            <article><span>New</span><strong id="dataNewCount">0</strong></article>
+            <article><span>Updates</span><strong id="dataUpdateCount">0</strong></article>
+            <article><span>Warnings</span><strong id="dataWarningCount">0</strong></article>
+          </div>
+          <div class="import-message" id="dataImportMessage"></div>
+          <div class="table-wrap import-preview-table-wrap">
+            <table>
+              <thead><tr><th>Record</th><th>Action</th><th>Details</th></tr></thead>
+              <tbody id="dataImportPreviewRows"></tbody>
+            </table>
+          </div>
+          <div class="modal-actions">
+            <button class="secondary-button" id="backToDataImportChoices">Back</button>
+            <button class="primary-button" id="applyDataImport">Apply Import</button>
+          </div>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <input type="file" id="masterXlsxInput" accept=".xlsx,.xls" hidden>
+  <input type="file" id="wtxXlsxInput" accept=".xlsx,.xls" hidden>
+  <input type="file" id="tqCsvInput" accept=".csv,text/csv" hidden>
   <div class="toast" id="toast" hidden></div>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
