@@ -36,7 +36,7 @@ function load(key,fallback){
 }
 function save(){localStorage.setItem(KEYS.master,JSON.stringify(master));localStorage.setItem(KEYS.accounts,JSON.stringify(accounts));localStorage.setItem(KEYS.assignments,JSON.stringify(assignments))}
 const $=id=>document.getElementById(id);
-const views={dashboard:$("dashboardView"),accounts:$("accountsView"),accountDetail:$("accountDetailView"),master:$("masterView"),audit:$("auditView"),placeholder:$("placeholderView")};
+const views={dashboard:$("dashboardView"),accounts:$("accountsView"),accountDetail:$("accountDetailView"),master:$("masterView"),audit:$("auditView"),reports:$("reportsView"),settings:$("settingsView"),placeholder:$("placeholderView")};
 const titles={dashboard:"Dashboard",accounts:"Accounts",master:"Master Registry",activations:"Activations",audit:"Audit Center",labels:"Labels",reports:"Reports",settings:"Settings"};
 
 function showView(name){
@@ -45,6 +45,8 @@ if(name==="dashboard")views.dashboard.classList.add("active");
 else if(name==="accounts")views.accounts.classList.add("active");
 else if(name==="master")views.master.classList.add("active");
 else if(name==="audit")views.audit.classList.add("active");
+else if(name==="reports")views.reports.classList.add("active");
+else if(name==="settings")views.settings.classList.add("active");
 else views.placeholder.classList.add("active");
 $("pageTitle").textContent=titles[name]||"Accounts";
 $("placeholderTitle").textContent=titles[name]||"Coming Soon";
@@ -54,6 +56,7 @@ if(name==="dashboard")renderDashboard();
 if(name==="accounts")renderAccounts();
 if(name==="master")renderMaster();
 if(name==="audit")renderAuditResults();
+if(name==="reports")renderReports();
 }
 
 function assignedFor(accountId){return assignments.filter(a=>a.accountId===accountId)}
@@ -1010,6 +1013,178 @@ $("auditStatusFilter").addEventListener("change",renderAuditResults);
 $("auditAccountList").addEventListener("click",event=>{
   const header=event.target.closest(".audit-account-header");
   if(header)header.closest(".audit-account-card").classList.toggle("collapsed");
+});
+
+function latestAuditForAccount(accountNumber){
+  return auditState?.results?.find(result=>String(result.accountNumber)===String(accountNumber))||null;
+}
+
+function reportRows(){
+  return accounts
+    .map(account=>{
+      const receivers=assignedFor(account.id).map(item=>assetById(item.assetId)).filter(Boolean);
+      const onRent=receivers.filter(receiver=>receiver.rentState==="On Rent").length;
+      const offRent=receivers.length-onRent;
+      const audit=latestAuditForAccount(account.number);
+
+      return {
+        account,
+        assigned:receivers.length,
+        onRent,
+        offRent,
+        available:Math.max(0,20-receivers.length),
+        audit:audit ? (audit.perfect ? "Perfect Match" : `${audit.missingFromAudit.length+audit.missingFromApp.length} Issue${audit.missingFromAudit.length+audit.missingFromApp.length===1?"":"s"}`) : "Not Audited"
+      };
+    })
+    .sort((a,b)=>String(a.account.number).localeCompare(String(b.account.number),undefined,{numeric:true}));
+}
+
+function assignedOffRentRows(){
+  return assignments
+    .map(assignment=>({
+      receiver:assetById(assignment.assetId),
+      account:accountById(assignment.accountId)
+    }))
+    .filter(item=>item.receiver&&item.account&&item.receiver.rentState==="Off Rent")
+    .sort((a,b)=>String(a.account.number).localeCompare(String(b.account.number),undefined,{numeric:true})||a.receiver.assetNumber.localeCompare(b.receiver.assetNumber));
+}
+
+function renderReports(){
+  const rows=reportRows();
+  const offRentRows=assignedOffRentRows();
+
+  $("reportMasterCount").textContent=master.length;
+  $("reportAssignedCount").textContent=assignments.length;
+  $("reportUnassignedCount").textContent=Math.max(0,master.length-assignments.length);
+  $("reportOffRentCount").textContent=offRentRows.length;
+  $("reportGeneratedAt").textContent=`Updated ${new Date().toLocaleString()}`;
+
+  $("reportAccountRows").innerHTML=rows.map(row=>`
+    <tr>
+      <td><strong>${esc(row.account.number)}</strong></td>
+      <td>${esc(row.account.name)}</td>
+      <td>${esc(row.account.office||row.account.location||"—")}</td>
+      <td>${row.assigned}</td>
+      <td>${row.onRent}</td>
+      <td>${row.offRent}</td>
+      <td>${row.available}</td>
+      <td><span class="report-status ${row.audit==="Perfect Match"?"good":row.audit==="Not Audited"?"neutral":"warn"}">${esc(row.audit)}</span></td>
+    </tr>`).join("");
+  $("reportAccountEmpty").hidden=rows.length!==0;
+
+  $("reportOffRentRows").innerHTML=offRentRows.map(item=>`
+    <tr>
+      <td><strong>${esc(item.receiver.assetNumber)}</strong></td>
+      <td>${esc(item.account.number)}</td>
+      <td>${esc(item.account.name)}</td>
+      <td>${esc(item.receiver.model||"—")}</td>
+      <td>${esc(item.receiver.accessCard||"—")}</td>
+      <td>${esc(item.receiver.rid||"—")}</td>
+    </tr>`).join("");
+  $("reportOffRentEmpty").hidden=offRentRows.length!==0;
+}
+
+function csvCell(value){
+  const text=String(value??"");
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g,'""')}"` : text;
+}
+
+function downloadFile(name,content,type){
+  const url=URL.createObjectURL(new Blob([content],{type}));
+  const link=document.createElement("a");
+  link.href=url;
+  link.download=name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),0);
+}
+
+function exportReportCsv(){
+  const headers=["Account Number","Account Name","Office / Location","Assigned","On Rent","Off Rent","Available Slots","Latest Audit"];
+  const lines=[
+    headers,
+    ...reportRows().map(row=>[
+      row.account.number,
+      row.account.name,
+      row.account.office||row.account.location||"",
+      row.assigned,
+      row.onRent,
+      row.offRent,
+      row.available,
+      row.audit
+    ])
+  ];
+  const date=new Date().toISOString().slice(0,10);
+  downloadFile(`asset-tracker-account-report-${date}.csv`,lines.map(row=>row.map(csvCell).join(",")).join("\r\n"),"text/csv;charset=utf-8");
+  toast("Account report downloaded.");
+}
+
+$("exportReportCsvButton").addEventListener("click",exportReportCsv);
+$("printReportButton").addEventListener("click",()=>window.print());
+
+function downloadBackup(){
+  const backup={
+    app:"Asset Tracker Pro",
+    schemaVersion:1,
+    exportedAt:new Date().toISOString(),
+    data:{master,accounts,assignments,auditState}
+  };
+  const date=new Date().toISOString().slice(0,10);
+  downloadFile(`asset-tracker-backup-${date}.json`,JSON.stringify(backup,null,2),"application/json");
+  toast("Complete backup downloaded.");
+}
+
+function validBackupArray(value){
+  return Array.isArray(value)&&value.every(item=>item&&typeof item==="object"&&!Array.isArray(item));
+}
+
+async function restoreBackup(file){
+  try{
+    const backup=JSON.parse(await file.text());
+    const data=backup?.data;
+    if(backup?.app!=="Asset Tracker Pro"||backup?.schemaVersion!==1||!data){
+      throw new Error("This is not a supported Asset Tracker Pro backup.");
+    }
+    if(!validBackupArray(data.master)||!validBackupArray(data.accounts)||!validBackupArray(data.assignments)){
+      throw new Error("The backup is missing required app data.");
+    }
+
+    const confirmed=confirm(
+      `Restore ${data.accounts.length} account${data.accounts.length===1?"":"s"} and ${data.master.length} Master receiver${data.master.length===1?"":"s"}?\n\nThis will replace the Asset Tracker data currently stored in this browser.`
+    );
+    if(!confirmed)return;
+
+    master=data.master;
+    accounts=data.accounts;
+    assignments=data.assignments;
+    auditState=data.auditState&&typeof data.auditState==="object" ? data.auditState : null;
+    currentAccountId=null;
+    expandedAccountIds.clear();
+    save();
+    if(auditState)localStorage.setItem(AUDIT_KEY,JSON.stringify(auditState));
+    else localStorage.removeItem(AUDIT_KEY);
+    renderDashboard();
+    renderAccounts();
+    renderMaster();
+    renderAuditResults();
+    showView("dashboard");
+    toast("Backup restored successfully.");
+  }catch(error){
+    toast(error.message||"Unable to restore that backup.");
+  }finally{
+    $("backupFileInput").value="";
+  }
+}
+
+$("downloadBackupButton").addEventListener("click",downloadBackup);
+$("restoreBackupButton").addEventListener("click",()=>{
+  $("backupFileInput").value="";
+  $("backupFileInput").click();
+});
+$("backupFileInput").addEventListener("change",event=>{
+  const file=event.target.files[0];
+  if(file)restoreBackup(file);
 });
 
 
