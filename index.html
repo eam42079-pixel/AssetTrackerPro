@@ -22,7 +22,7 @@
         <button class="nav-item active" data-view="dashboard"><span class="nav-icon">⌂</span><span>Dashboard</span></button>
         <button class="nav-item" data-view="accounts"><span class="nav-icon">◎</span><span>Accounts</span></button>
         <button class="nav-item" data-view="master"><span class="nav-icon">▣</span><span>Master Registry</span></button>
-        <button class="nav-item" data-view="activations"><span class="nav-icon">⚡</span><span>Activations</span><span class="nav-badge">4</span></button>
+        <button class="nav-item" data-view="activations"><span class="nav-icon">⚡</span><span>Activations</span></button>
         <button class="nav-item" data-view="audit"><span class="nav-icon">⇄</span><span>Audit Center</span></button>
         <button class="nav-item" data-view="labels"><span class="nav-icon">▦</span><span>Labels</span></button>
         <button class="nav-item" data-view="reports"><span class="nav-icon">◫</span><span>Reports</span></button>
@@ -224,6 +224,95 @@
 
             <div class="audit-account-list" id="auditAccountList"></div>
           </div>
+        </section>
+      </section>
+
+      <section class="view" id="reportsView">
+        <div class="page-toolbar">
+          <div>
+            <p class="eyebrow">Operations snapshot</p>
+            <h2>Reports</h2>
+            <p class="page-description">Review account capacity, receiver status, and the latest audit results. Export the account summary for Excel or print the report.</p>
+          </div>
+          <div class="report-actions">
+            <button class="secondary-button" id="printReportButton">Print Report</button>
+            <button class="primary-button" id="exportReportCsvButton">Export CSV</button>
+          </div>
+        </div>
+
+        <section class="report-stat-grid">
+          <article class="mini-stat"><span>Master Receivers</span><strong id="reportMasterCount">0</strong></article>
+          <article class="mini-stat"><span>Assigned</span><strong id="reportAssignedCount">0</strong></article>
+          <article class="mini-stat"><span>Unassigned</span><strong id="reportUnassignedCount">0</strong></article>
+          <article class="mini-stat"><span>Assigned Off Rent</span><strong id="reportOffRentCount">0</strong></article>
+        </section>
+
+        <section class="panel report-panel">
+          <div class="panel-header">
+            <div><p class="eyebrow">Account summary</p><h3>Receivers by Account</h3></div>
+            <span class="report-generated" id="reportGeneratedAt"></span>
+          </div>
+          <div class="table-wrap">
+            <table class="report-table">
+              <thead><tr><th>Account</th><th>Account Name</th><th>Office / Location</th><th>Assigned</th><th>On Rent</th><th>Off Rent</th><th>Available</th><th>Audit</th></tr></thead>
+              <tbody id="reportAccountRows"></tbody>
+            </table>
+          </div>
+          <div class="empty-state" id="reportAccountEmpty" hidden><strong>No accounts available</strong><span>Import or create accounts to populate this report.</span></div>
+        </section>
+
+        <section class="panel report-panel">
+          <div class="panel-header">
+            <div><p class="eyebrow">Needs review</p><h3>Assigned Receivers Marked Off Rent</h3></div>
+          </div>
+          <div class="table-wrap">
+            <table class="report-table">
+              <thead><tr><th>Asset</th><th>Account</th><th>Account Name</th><th>Model</th><th>Access Card</th><th>RID</th></tr></thead>
+              <tbody id="reportOffRentRows"></tbody>
+            </table>
+          </div>
+          <div class="empty-state" id="reportOffRentEmpty" hidden><strong>No assigned Off Rent receivers</strong><span>All assigned receivers are currently marked On Rent.</span></div>
+        </section>
+      </section>
+
+      <section class="view" id="settingsView">
+        <div class="page-toolbar">
+          <div>
+            <p class="eyebrow">Data safety</p>
+            <h2>Settings</h2>
+            <p class="page-description">This version stores data in the current browser. Download a complete backup before clearing browser data or moving to another device.</p>
+          </div>
+        </div>
+
+        <section class="settings-grid">
+          <article class="panel settings-card">
+            <div class="settings-icon">↓</div>
+            <div>
+              <p class="eyebrow">Complete backup</p>
+              <h3>Download App Data</h3>
+              <p>Includes the Master Registry, accounts, assignments, and the latest audit results.</p>
+            </div>
+            <button class="primary-button" id="downloadBackupButton">Download Backup</button>
+          </article>
+
+          <article class="panel settings-card">
+            <div class="settings-icon">↑</div>
+            <div>
+              <p class="eyebrow">Restore or transfer</p>
+              <h3>Restore App Data</h3>
+              <p>Load a backup created by Asset Tracker Pro. Restoring replaces the data stored in this browser.</p>
+            </div>
+            <button class="secondary-button" id="restoreBackupButton">Choose Backup</button>
+          </article>
+        </section>
+
+        <section class="panel storage-status-panel">
+          <div>
+            <p class="eyebrow">Current storage</p>
+            <h3>Local Browser Storage</h3>
+            <p>Automatic cloud sync is not connected yet. Backups provide a safe transfer method until cloud storage is added.</p>
+          </div>
+          <span class="storage-status-badge">Local Only</span>
         </section>
       </section>
 
@@ -487,6 +576,7 @@
   <input type="file" id="masterXlsxInput" accept=".xlsx,.xls" hidden>
   <input type="file" id="wtxXlsxInput" accept=".xlsx,.xls" hidden>
   <input type="file" id="tqCsvInput" accept=".csv,text/csv" hidden>
+  <input type="file" id="backupFileInput" accept=".json,application/json" hidden>
   <div class="toast" id="toast" hidden></div>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="app.js"></script>
