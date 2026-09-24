@@ -4,6 +4,20 @@ import { useCallback, useEffect, useState } from "react";
 
 const TEST_RECIPIENT = "earrieta@tanmarcompanies.com";
 
+type Receiver = {
+  asset: string;
+  model: string;
+  type: string;
+  serial: string;
+  rid: string;
+  card: string;
+  rentState: string;
+  accountNumber: string;
+  accountName: string;
+  recordedLocation: string;
+  office: string;
+};
+
 type GpsPing = {
   latitude: number;
   longitude: number;
@@ -14,7 +28,20 @@ type GpsPing = {
 const valueOrDash = (value: string) => value || "—";
 
 export default function Home() {
-  const [asset, setAsset] = useState("");
+  const [receiver, setReceiver] = useState<Receiver>({
+    asset: "",
+    model: "",
+    type: "",
+    serial: "",
+    rid: "",
+    card: "",
+    rentState: "",
+    accountNumber: "",
+    accountName: "",
+    recordedLocation: "",
+    office: "",
+  });
+  const asset = receiver.asset;
   const [requesterName, setRequesterName] = useState("");
   const [requesterPhone, setRequesterPhone] = useState("");
   const [errorCode, setErrorCode] = useState("");
@@ -34,13 +61,19 @@ export default function Home() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const scannedAsset = (params.get("a") || "").trim().toUpperCase();
-    setAsset(scannedAsset);
-    // Older labels included receiver details in the URL. Discard them immediately.
-    const cleanUrl = new URL(window.location.href);
-    cleanUrl.search = "";
-    if (scannedAsset) cleanUrl.searchParams.set("a", scannedAsset);
-    window.history.replaceState(null, "", cleanUrl);
+    setReceiver({
+      asset: params.get("a") || "",
+      model: params.get("m") || "",
+      type: params.get("t") || "",
+      serial: params.get("s") || "",
+      rid: params.get("r") || "",
+      card: params.get("c") || "",
+      rentState: params.get("rs") || "",
+      accountNumber: params.get("an") || "",
+      accountName: params.get("ac") || "",
+      recordedLocation: params.get("al") || "",
+      office: params.get("ao") || "",
+    });
   }, []);
 
   const requestLocation = useCallback(() => {
@@ -83,22 +116,42 @@ export default function Home() {
     requestLocation();
   }, [requestLocation]);
 
-  function openTestEmail(location: GpsPing) {
+  function openEmail(trimmedError: string, location: GpsPing) {
+    const mapsLink = `https://maps.google.com/?q=${location.latitude},${location.longitude}`;
     const body = [
-      "Please reactivate or refresh this receiver.", "",
-      `Asset Number: ${asset}`,
+      "Please reactivate or refresh this receiver.",
+      "",
+      `On-Screen Error Code: ${trimmedError}`,
+      "",
       `Requester Name: ${requesterName.trim()}`,
       `Callback Phone: ${requesterPhone.trim()}`,
-      `On-Screen Error Code: ${errorCode.trim()}`,
+      "",
+      "WORK SITE INFORMATION",
       `Operator Name: ${operatorName.trim()}`,
       `Rig/Frac: ${rigFrac.trim()}`,
-      `Lease: ${lease.trim()}`, "",
+      `Lease: ${lease.trim()}`,
+      "",
+      "RECEIVER INFORMATION",
+      `Asset Number: ${valueOrDash(receiver.asset)}`,
+      `Model: ${valueOrDash(receiver.model)}`,
+      `Receiver Type: ${valueOrDash(receiver.type)}`,
+      `Serial Number: ${valueOrDash(receiver.serial)}`,
+      `Receiver ID (RID): ${valueOrDash(receiver.rid)}`,
+      `Access Card: ${valueOrDash(receiver.card)}`,
+      `Rent Status: ${valueOrDash(receiver.rentState)}`,
+      `Current Account: ${valueOrDash(receiver.accountNumber)}`,
+      `Account Name: ${valueOrDash(receiver.accountName)}`,
+      `Recorded Location: ${valueOrDash(receiver.recordedLocation)}`,
+      `Office / Yard: ${valueOrDash(receiver.office)}`,
+      "",
+      "SCAN LOCATION",
       `GPS Coordinates: ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`,
       `GPS Accuracy: ${Math.round(location.accuracy)} meters`,
-      `Map: https://maps.google.com/?q=${location.latitude},${location.longitude}`,
+      `Map: ${mapsLink}`,
       `Captured: ${new Date(location.capturedAt).toLocaleString()}`,
     ].join("\n");
-    window.location.href = `mailto:${TEST_RECIPIENT}?subject=${encodeURIComponent(`${asset} / Service Request`)}&body=${encodeURIComponent(body)}`;
+    const subject = `${valueOrDash(receiver.asset)} / Service Request`;
+    window.location.href = `mailto:${TEST_RECIPIENT}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
 
   async function submitRequest() {
@@ -110,6 +163,12 @@ export default function Home() {
     const trimmedPhone = requesterPhone.trim();
     if (!asset) {
       setFormError("Scan a receiver label with an asset number.");
+      return;
+    }
+    if (!receiver.serial && !receiver.rid && !receiver.card) {
+      setFormError(
+        "This link is missing the receiver details required for the service email. Scan the receiver label again. If needed, generate a new Receiver / Service label in the tracker.",
+      );
       return;
     }
     if (!trimmedRequester || !trimmedPhone) {
@@ -140,6 +199,16 @@ export default function Home() {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           assetNumber: asset,
+          model: receiver.model,
+          receiverType: receiver.type,
+          serialNumber: receiver.serial,
+          rid: receiver.rid,
+          accessCard: receiver.card,
+          rentState: receiver.rentState,
+          accountNumber: receiver.accountNumber,
+          accountName: receiver.accountName,
+          recordedLocation: receiver.recordedLocation,
+          office: receiver.office,
           requesterName: trimmedRequester,
           requesterPhone: trimmedPhone,
           operatorName: trimmedOperator,
@@ -155,7 +224,7 @@ export default function Home() {
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error || "Request was not saved.");
       setSubmitted(true);
-      openTestEmail(gps);
+      openEmail(trimmedError, gps);
     } catch (error) {
       setFormError(
         error instanceof Error

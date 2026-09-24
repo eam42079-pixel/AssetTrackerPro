@@ -212,14 +212,26 @@ export async function POST(request: Request) {
     await db
       .prepare(
         `INSERT INTO service_requests (
-          id, asset_number, operator_name, requester_name, requester_phone, rig_frac, lease,
+          id, asset_number, model, receiver_type, serial_number, rid,
+          access_card, rent_state, account_number, account_name,
+          recorded_location, office, operator_name, requester_name, requester_phone, rig_frac, lease,
           error_code, latitude, longitude,
           gps_accuracy, gps_captured_at, action, status, notes, requested_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', '', ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', '', ?)`,
       )
       .bind(
         id,
         assetNumber,
+        String(body.model || "").trim(),
+        String(body.receiverType || "").trim(),
+        String(body.serialNumber || "").trim(),
+        String(body.rid || "").trim(),
+        String(body.accessCard || "").trim(),
+        String(body.rentState || "").trim(),
+        String(body.accountNumber || "").trim(),
+        String(body.accountName || "").trim(),
+        String(body.recordedLocation || "").trim(),
+        String(body.office || "").trim(),
         operatorName,
         requesterName,
         requesterPhone,

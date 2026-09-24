@@ -1021,7 +1021,22 @@ function serviceQrMarkup(value,assetNumber){
 
 function serviceRequestLink(receiver,account=null){
   const requestUrl=new URL(PUBLIC_SERVICE_REQUEST_URL);
-  requestUrl.searchParams.set("a",String(receiver.assetNumber||"").trim());
+  const requestData={
+    a:receiver.assetNumber,
+    m:receiver.model,
+    t:receiver.type,
+    s:receiver.serial,
+    r:receiver.rid,
+    c:receiver.accessCard,
+    rs:receiver.rentState,
+    an:account?.number||"",
+    ac:account?.name||"",
+    al:account?.location||"",
+    ao:account?.office||""
+  };
+  Object.entries(requestData).forEach(([key,value])=>{
+    if(value)requestUrl.searchParams.set(key,value);
+  });
   return requestUrl.href;
 }
 

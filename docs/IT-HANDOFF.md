@@ -6,8 +6,8 @@ Updated September 24, 2026. This is the current source with the export changes b
 
 | Component | Published version | Source commit |
 | --- | --- | --- |
-| Tracker | 56 | `4232fe9fe5bc777546be65ee5d2ba5805813a8c8` |
-| QR service | 7 | `3ef135859a1db13590a730049a2c36d00edcc2e4` |
+| Tracker | 57 | `f79f2a9855a00c1017a1681673e2ac57811fa4da` |
+| QR service | 8 | `e0f97544b17ffb19ac90086674182ff6d6238596` |
 | Previous GitHub prototype | July 10, 2026 | `70785910a2d93b0f7aad4b0e24a59e3afc101240` |
 
 Both source versions had successful production deployments when retrieved.
@@ -21,9 +21,9 @@ Production runtime secrets and database contents were not retrieved. A clean sou
 
 The tracker is an HTML/CSS/JavaScript interface served by Vinext. `/` redirects to `/asset-tracker/index.html`. Server routes run in a Cloudflare Worker with a D1 binding named `DB`.
 
-The QR service is a separate Vinext/React app and Worker with its own D1 database, also bound as `DB`. Its public form displays the asset number and collects requester name, callback phone, operator, rig/frac, lease, error code and GPS. Submit records the request and, during testing, opens a prefilled email draft containing only those public details. The tester must tap Send. For production, IT must replace the draft with server-side email and look up account number, receiver identifiers and rent status from the private tracker registry before sending. This code does not yet send email automatically or include an automatic Monday email job.
+The QR service is a separate Vinext/React app and Worker with its own D1 database, also bound as `DB`. Its public form displays the asset number and collects requester name, callback phone, operator, rig/frac, lease, error code and GPS. Submit records the request and, during testing, opens the full original email draft, including serial number, card number, RID, account number and receiver rent status from the scanned label. The tester must tap Send. For production, IT must replace the draft with server-side email and look up account number, receiver identifiers and rent status from the private tracker registry before sending. This code does not yet send email automatically or include an automatic Monday email job.
 
-The production email should retain the original subject (`<asset number> / Service Request`), recipient currently configured as `earrieta@tanmarcompanies.com`, opening request to reactivate or refresh, on-screen error code, operator name, rig/frac, lease, receiver asset/model/type/serial/RID/access card, rent status, account number/name, recorded location, office/yard, GPS coordinates and accuracy, map link and capture time. Add requester name and callback phone. Resolve receiver and account fields by asset number inside the trusted tracker server, then send the full email to staff; never send those fields to the public form or its browser email draft.
+The current test email retains the original subject (`<asset number> / Service Request`), recipient currently configured as `earrieta@tanmarcompanies.com`, opening request to reactivate or refresh, on-screen error code, operator name, rig/frac, lease, receiver asset/model/type/serial/RID/access card, rent status, account number/name, recorded location, office/yard, GPS coordinates and accuracy, map link and capture time. Requester name and callback phone are also included. The form itself displays only the asset number. For the later production flow, resolve receiver and account fields by asset number inside the trusted server, send the full email to staff, and return only a confirmation to the customer. The current mailto test draft is visible on the scanning device.
 
 | Tracker endpoint | Function |
 | --- | --- |
@@ -80,9 +80,9 @@ The import UI loads SheetJS XLSX from a CDN. Review/vendor that dependency if ex
 
 ## Labels and QR continuity
 
-Version-56 code uses a 62 mm roll with a 150 mm cut for receiver/service labels (DK-2212), and a 29 mm roll with a 90 mm cut for barcodes (DK-2211). Browser scale, orientation, margins, headers/footers and Brother cutting settings must match the driver; the app cannot set all driver options automatically.
+Version-57 code uses a 62 mm roll with a 150 mm cut for receiver/service labels (DK-2212), and a 29 mm roll with a 90 mm cut for barcodes (DK-2211). Browser scale, orientation, margins, headers/footers and Brother cutting settings must match the driver; the app cannot set all driver options automatically.
 
-Changing `config.js` changes newly generated QR labels. New labels encode only the asset number in the QR URL; printed text still includes card, RID and serial. Older printed QR labels retain their original URL and encoded receiver/account metadata. Reprint them to remove that data from the QR code itself. The public form discards those legacy query values without displaying or saving them.
+Changing `config.js` changes newly generated QR labels. The original full QR payload is restored for testing so the full email has its receiver/account fields. The form shows only the asset number; printed label text still includes card, RID and serial. Existing labels printed before tracker version 56 work with a fresh scan. Labels generated by version 56 contain only the asset number and must be regenerated for the full test email. A missing-data check prevents silently creating another incomplete email. When IT enables server lookup and sending, replace this test payload with an asset identifier and keep private fields on the server.
 
 ## Export changes and remaining review
 
@@ -92,10 +92,10 @@ Changing `config.js` changes newly generated QR labels. New labels encode only t
 - Added local configuration templates and detached manifests from the live projects.
 - Preserved imports and label dimensions, and added the service-request migration for requester name and phone.
 
-The live apps now have the asset-only QR and requester form. The legacy token still exists in the live tracker client; retire/rotate it during a coordinated live update after deploying the new proxy configuration. Revoking it first would break current request synchronization.
+The live apps now have the compact requester form and restored full test email. The legacy token still exists in the live tracker client; retire/rotate it during a coordinated live update after deploying the new proxy configuration. Revoking it first would break current request synchronization.
 
 The repository is public. Restrict access if company policy requires private source. This handoff is not a full security audit. Review public-submission abuse controls, first-admin setup, roles, backup coverage and assumptions inherited from Sites before production migration.
 
 ## Validation
 
-See [VALIDATION.md](VALIDATION.md). Physical printing, iPad behavior and production migration were not tested during this handoff.
+The correction was checked from generated QR URL through parsed receiver data to the email body: all original email lines match, with requester contact added; the form omits receiver metadata; the SQL insert preserves serial, card, RID, account and status. Both corrected Sites builds and deployments succeeded. See [VALIDATION.md](VALIDATION.md) for the initial handoff checks. Physical printing, iPad behavior and production migration were not tested during this handoff.
