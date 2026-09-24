@@ -17,6 +17,8 @@ type RequestRow = {
   recorded_location: string;
   office: string;
   operator_name: string;
+  requester_name: string;
+  requester_phone: string;
   rig_frac: string;
   lease: string;
   error_code: string;
@@ -113,6 +115,8 @@ function mapRow(row: RequestRow) {
     recordedLocation: row.recorded_location,
     office: row.office,
     operatorName: row.operator_name,
+    requesterName: row.requester_name,
+    requesterPhone: row.requester_phone,
     rigFrac: row.rig_frac,
     lease: row.lease,
     errorCode: row.error_code,
@@ -135,6 +139,8 @@ export async function POST(request: Request) {
     const body = (await request.json()) as Record<string, unknown>;
     const assetNumber = String(body.assetNumber || "").trim().toUpperCase();
     const operatorName = String(body.operatorName || "").trim();
+    const requesterName = String(body.requesterName || "").trim();
+    const requesterPhone = String(body.requesterPhone || "").trim();
     const rigFrac = String(body.rigFrac || "").trim();
     const lease = String(body.lease || "").trim();
     const errorCode = String(body.errorCode || "").trim();
@@ -146,6 +152,11 @@ export async function POST(request: Request) {
     if (!assetNumber)
       return Response.json(
         { error: "Asset Number is required." },
+        { status: 400 },
+      );
+    if (!requesterName || !requesterPhone || requesterName.length > 120 || requesterPhone.length > 40)
+      return Response.json(
+        { error: "Requester name and callback phone number are required." },
         { status: 400 },
       );
     if (!errorCode)
@@ -201,27 +212,17 @@ export async function POST(request: Request) {
     await db
       .prepare(
         `INSERT INTO service_requests (
-          id, asset_number, model, receiver_type, serial_number, rid,
-          access_card, rent_state, account_number, account_name,
-          recorded_location, office, operator_name, rig_frac, lease,
+          id, asset_number, operator_name, requester_name, requester_phone, rig_frac, lease,
           error_code, latitude, longitude,
           gps_accuracy, gps_captured_at, action, status, notes, requested_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', '', ?)`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Pending', '', ?)`,
       )
       .bind(
         id,
         assetNumber,
-        String(body.model || "").trim(),
-        String(body.receiverType || "").trim(),
-        String(body.serialNumber || "").trim(),
-        String(body.rid || "").trim(),
-        String(body.accessCard || "").trim(),
-        String(body.rentState || "").trim(),
-        String(body.accountNumber || "").trim(),
-        String(body.accountName || "").trim(),
-        String(body.recordedLocation || "").trim(),
-        String(body.office || "").trim(),
         operatorName,
+        requesterName,
+        requesterPhone,
         rigFrac,
         lease,
         errorCode,

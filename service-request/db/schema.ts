@@ -17,6 +17,8 @@ export const serviceRequests = sqliteTable(
     recordedLocation: text("recorded_location").notNull().default(""),
     office: text("office").notNull().default(""),
     operatorName: text("operator_name").notNull().default(""),
+    requesterName: text("requester_name").notNull().default(""),
+    requesterPhone: text("requester_phone").notNull().default(""),
     rigFrac: text("rig_frac").notNull().default(""),
     lease: text("lease").notNull().default(""),
     errorCode: text("error_code").notNull(),

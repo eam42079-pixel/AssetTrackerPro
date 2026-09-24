@@ -360,7 +360,7 @@ function archiveActivationEvent(request,receiver,account,reason="completed"){
     changedBy:currentUser?.name||"Unknown",status:request.status||"",action:request.action||"Service",
     requestedAt:request.requestedAt||"",completedAt:request.completedAt||"",accountNumber:account?.number||request.accountNumber||"",
     accountName:account?.name||request.accountName||"",notes:request.notes||"",errorCode:request.errorCode||"",
-    operatorName:request.operatorName||"",requesterName:request.requesterName||"",rigFrac:request.rigFrac||"",lease:request.lease||"",
+    operatorName:request.operatorName||"",requesterName:request.requesterName||"",requesterPhone:request.requesterPhone||"",rigFrac:request.rigFrac||"",lease:request.lease||"",
     mapUrl:request.mapUrl||"",gpsAccuracy:request.gpsAccuracy||"",source:request.source||"Manual"
   };
   receiverEvents.unshift(snapshot);
@@ -817,7 +817,7 @@ function renderActivations(){
   $("activationOffCount").textContent=pending.filter(item=>item.action==="Deactivate").length;
   const filtered=rows.filter(({request,receiver,account})=>{
     if(status!=="all"&&request.status!==status)return false;
-    return !q||[receiver?.assetNumber,receiver?.serial,receiver?.rid,account?.number,account?.name,request.action,request.status,request.errorCode,request.requesterName,request.operatorName,request.rigFrac,request.lease,request.notes].join(" ").toLowerCase().includes(q);
+    return !q||[receiver?.assetNumber,receiver?.serial,receiver?.rid,account?.number,account?.name,request.action,request.status,request.errorCode,request.requesterName,request.requesterPhone,request.operatorName,request.rigFrac,request.lease,request.notes].join(" ").toLowerCase().includes(q);
   }).sort((a,b)=>String(b.request.requestedAt).localeCompare(String(a.request.requestedAt)));
   $("activationRows").innerHTML=filtered.map(({request,receiver,account})=>`
     <tr class="${q?"search-return":""}">
@@ -829,7 +829,7 @@ function renderActivations(){
       <td><span class="activation-status ${request.status.toLowerCase()}">${esc(request.status)}</span></td>
       <td><div class="activation-location"><strong>${esc(request.errorCode?`Error ${request.errorCode}`:"—")}</strong>${request.mapUrl?`<a href="${esc(request.mapUrl)}" target="_blank" rel="noopener">Open GPS map ↗</a><span>±${esc(Math.round(Number(request.gpsAccuracy)||0))} m</span>`:""}</div></td>
       <td>${esc(request.completedAt?new Date(request.completedAt).toLocaleDateString():"—")}</td>
-      <td class="activation-notes"><div class="activation-notes-stack" title="${esc(request.notes||"")}">${request.requesterName?`<span><b>Requested by:</b> ${esc(request.requesterName)}</span>`:""}${request.operatorName?`<span><b>Operator:</b> ${esc(request.operatorName)}</span>`:""}${request.rigFrac?`<span><b>Rig/Frac:</b> ${esc(request.rigFrac)}</span>`:""}${request.lease?`<span><b>Lease:</b> ${esc(request.lease)}</span>`:""}${request.notes?`<span class="activation-request-note">${esc(request.notes)}</span>`:""}${!request.requesterName&&!request.operatorName&&!request.rigFrac&&!request.lease&&!request.notes?"—":""}</div></td>
+      <td class="activation-notes"><div class="activation-notes-stack" title="${esc(request.notes||"")}">${request.requesterName?`<span><b>Requested by:</b> ${esc(request.requesterName)}</span>`:""}${request.requesterPhone?`<span><b>Callback:</b> ${esc(request.requesterPhone)}</span>`:""}${request.operatorName?`<span><b>Operator:</b> ${esc(request.operatorName)}</span>`:""}${request.rigFrac?`<span><b>Rig/Frac:</b> ${esc(request.rigFrac)}</span>`:""}${request.lease?`<span><b>Lease:</b> ${esc(request.lease)}</span>`:""}${request.notes?`<span class="activation-request-note">${esc(request.notes)}</span>`:""}${!request.requesterName&&!request.requesterPhone&&!request.operatorName&&!request.rigFrac&&!request.lease&&!request.notes?"—":""}</div></td>
       <td><div class="row-actions">
         ${request.status==="Pending"?`<button class="small-button" data-activation-complete="${request.id}">Complete</button>${request.remote?"":`<button class="small-button" data-activation-edit="${request.id}">Edit</button>`}<button class="small-button" data-activation-cancel="${request.id}">Cancel</button>`:`<button class="small-button" data-activation-reopen="${request.id}">Reopen</button>`}
         <button class="small-button danger" data-activation-delete="${request.id}">Delete</button>
@@ -956,7 +956,7 @@ function openReceiverEvent(eventId){
   if(!entry)return;
   $("receiverEventTitle").textContent=entry.title||"Event Details";
   const rows=[
-    ["Event Date",formatUndoTime(entry.date)||entry.date],["Action",entry.action],["Status",entry.status],["Requested By",entry.requesterName],
+    ["Event Date",formatUndoTime(entry.date)||entry.date],["Action",entry.action],["Status",entry.status],["Requested By",entry.requesterName],["Callback Phone",entry.requesterPhone],
     ["Requested",entry.requestedAt?formatUndoTime(entry.requestedAt):""],["Completed",entry.completedAt?formatUndoTime(entry.completedAt):""],
     ["Account",[entry.accountNumber,entry.accountName].filter(Boolean).join(" — ")],["Source",entry.source],
     ["Error Code",entry.errorCode],["Operator",entry.operatorName],["Rig / Frac",entry.rigFrac],["Lease",entry.lease],
@@ -1021,22 +1021,7 @@ function serviceQrMarkup(value,assetNumber){
 
 function serviceRequestLink(receiver,account=null){
   const requestUrl=new URL(PUBLIC_SERVICE_REQUEST_URL);
-  const requestData={
-    a:receiver.assetNumber,
-    m:receiver.model,
-    t:receiver.type,
-    s:receiver.serial,
-    r:receiver.rid,
-    c:receiver.accessCard,
-    rs:receiver.rentState,
-    an:account?.number||"",
-    ac:account?.name||"",
-    al:account?.location||"",
-    ao:account?.office||""
-  };
-  Object.entries(requestData).forEach(([key,value])=>{
-    if(value)requestUrl.searchParams.set(key,value);
-  });
+  requestUrl.searchParams.set("a",String(receiver.assetNumber||"").trim());
   return requestUrl.href;
 }
 

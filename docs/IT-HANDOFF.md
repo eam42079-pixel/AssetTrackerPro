@@ -1,13 +1,13 @@
 # IT handoff — TanMar Receiver Control
 
-Prepared September 23, 2026. This is the current source with the export changes below, not a completed transfer of production hosting or databases.
+Updated September 24, 2026. This is the current source with the export changes below, not a completed transfer of production hosting or databases.
 
 ## Provenance
 
 | Component | Published version | Source commit |
 | --- | --- | --- |
-| Tracker | 55 | `59f9e829c7da9aa70082c85c3ba9077137cef681` |
-| QR service | 6 | `371b0d3e22ed11c28fcf69eadb436f939f230c06` |
+| Tracker | 56 | `4232fe9fe5bc777546be65ee5d2ba5805813a8c8` |
+| QR service | 7 | `3ef135859a1db13590a730049a2c36d00edcc2e4` |
 | Previous GitHub prototype | July 10, 2026 | `70785910a2d93b0f7aad4b0e24a59e3afc101240` |
 
 Both source versions had successful production deployments when retrieved.
@@ -21,7 +21,7 @@ Production runtime secrets and database contents were not retrieved. A clean sou
 
 The tracker is an HTML/CSS/JavaScript interface served by Vinext. `/` redirects to `/asset-tracker/index.html`. Server routes run in a Cloudflare Worker with a D1 binding named `DB`.
 
-The QR service is a separate Vinext/React app and Worker with its own D1 database, also bound as `DB`. Its public form captures receiver details, operator, rig/frac, lease, error code and GPS. It records the request, then opens a prefilled email for the user to send. This code does not include SMTP sending or an automatic Monday email job.
+The QR service is a separate Vinext/React app and Worker with its own D1 database, also bound as `DB`. Its public form displays the asset number and collects requester name, callback phone, operator, rig/frac, lease, error code and GPS. Submit records the request and, during testing, opens a prefilled email draft containing only those public details. The tester must tap Send. For production, IT must replace the draft with server-side email and look up account number, receiver identifiers and rent status from the private tracker registry before sending. This code does not yet send email automatically or include an automatic Monday email job.
 
 | Tracker endpoint | Function |
 | --- | --- |
@@ -42,7 +42,8 @@ The service's `/api/requests` accepts public submissions. Listing, changing and 
 | `ADMIN_SHARED_SECRET` | Both server runtimes; `.dev.vars` locally | Same newly generated secret |
 | `SERVICE_REQUEST_API_URL` | Tracker server runtime | Service application's full `/api/requests` URL |
 | `serviceRequestUrl` | `public/asset-tracker/config.js` | Public QR service base URL; localhost in this handoff |
-| Service email recipient | `service-request/app/page.tsx`, `TEST_RECIPIENT` | Review existing test recipient before production |
+| Temporary test email recipient | `service-request/app/page.tsx`, `TEST_RECIPIENT` | Remove the client email draft when IT configures server sending |
+| Production email sender and recipient | Server integration to be configured by IT | Keep credentials and receiver lookup server-side; never put private receiver data in the QR URL or customer response |
 
 The tracker label screen and legacy static service form also contain recipient text. Search `public/asset-tracker/` and `service-request/app/` when changing addresses. The tracker deactivation recipient is a device preference.
 
@@ -77,9 +78,9 @@ The import UI loads SheetJS XLSX from a CDN. Review/vendor that dependency if ex
 
 ## Labels and QR continuity
 
-Version-55 code uses a 62 mm roll with a 150 mm cut for receiver/service labels (DK-2212), and a 29 mm roll with a 90 mm cut for barcodes (DK-2211). Browser scale, orientation, margins, headers/footers and Brother cutting settings must match the driver; the app cannot set all driver options automatically.
+Version-56 code uses a 62 mm roll with a 150 mm cut for receiver/service labels (DK-2212), and a 29 mm roll with a 90 mm cut for barcodes (DK-2211). Browser scale, orientation, margins, headers/footers and Brother cutting settings must match the driver; the app cannot set all driver options automatically.
 
-Changing `config.js` changes newly generated QR labels. Existing printed labels keep the old service URL. Some receiver/account metadata is encoded in QR query parameters; review whether an opaque receiver identifier is preferable for IT hosting.
+Changing `config.js` changes newly generated QR labels. New labels encode only the asset number in the QR URL; printed text still includes card, RID and serial. Older printed QR labels retain their original URL and encoded receiver/account metadata. Reprint them to remove that data from the QR code itself. The public form discards those legacy query values without displaying or saving them.
 
 ## Export changes and remaining review
 
@@ -87,9 +88,9 @@ Changing `config.js` changes newly generated QR labels. Existing printed labels 
 - Routed tracker service actions through a session-protected same-origin proxy; only the server sends the credential upstream.
 - Made the upstream URL a server setting and the public QR destination a non-secret browser setting.
 - Added local configuration templates and detached manifests from the live projects.
-- Preserved imports, label dimensions, database schemas and the remaining interface behavior.
+- Preserved imports and label dimensions, and added the service-request migration for requester name and phone.
 
-The live apps were not changed. The legacy token still exists in the live client; retire/rotate it during a coordinated live update after deploying the new proxy configuration. Revoking it first would break current request synchronization.
+The live apps now have the asset-only QR and requester form. The legacy token still exists in the live tracker client; retire/rotate it during a coordinated live update after deploying the new proxy configuration. Revoking it first would break current request synchronization.
 
 The repository is public. Restrict access if company policy requires private source. This handoff is not a full security audit. Review public-submission abuse controls, first-admin setup, roles, backup coverage and assumptions inherited from Sites before production migration.
 

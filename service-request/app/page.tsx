@@ -1,22 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 const TEST_RECIPIENT = "earrieta@tanmarcompanies.com";
-
-type Receiver = {
-  asset: string;
-  model: string;
-  type: string;
-  serial: string;
-  rid: string;
-  card: string;
-  rentState: string;
-  accountNumber: string;
-  accountName: string;
-  recordedLocation: string;
-  office: string;
-};
 
 type GpsPing = {
   latitude: number;
@@ -28,19 +14,9 @@ type GpsPing = {
 const valueOrDash = (value: string) => value || "—";
 
 export default function Home() {
-  const [receiver, setReceiver] = useState<Receiver>({
-    asset: "",
-    model: "",
-    type: "",
-    serial: "",
-    rid: "",
-    card: "",
-    rentState: "",
-    accountNumber: "",
-    accountName: "",
-    recordedLocation: "",
-    office: "",
-  });
+  const [asset, setAsset] = useState("");
+  const [requesterName, setRequesterName] = useState("");
+  const [requesterPhone, setRequesterPhone] = useState("");
   const [errorCode, setErrorCode] = useState("");
   const [operatorName, setOperatorName] = useState("");
   const [rigFrac, setRigFrac] = useState("");
@@ -58,37 +34,14 @@ export default function Home() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    setReceiver({
-      asset: params.get("a") || "",
-      model: params.get("m") || "",
-      type: params.get("t") || "",
-      serial: params.get("s") || "",
-      rid: params.get("r") || "",
-      card: params.get("c") || "",
-      rentState: params.get("rs") || "",
-      accountNumber: params.get("an") || "",
-      accountName: params.get("ac") || "",
-      recordedLocation: params.get("al") || "",
-      office: params.get("ao") || "",
-    });
+    const scannedAsset = (params.get("a") || "").trim().toUpperCase();
+    setAsset(scannedAsset);
+    // Older labels included receiver details in the URL. Discard them immediately.
+    const cleanUrl = new URL(window.location.href);
+    cleanUrl.search = "";
+    if (scannedAsset) cleanUrl.searchParams.set("a", scannedAsset);
+    window.history.replaceState(null, "", cleanUrl);
   }, []);
-
-  const details = useMemo(
-    () =>
-      [
-        ["Model", receiver.model],
-        ["Receiver Type", receiver.type],
-        ["Serial Number", receiver.serial],
-        ["Receiver ID (RID)", receiver.rid],
-        ["Access Card", receiver.card],
-        ["Rent Status", receiver.rentState],
-        ["Current Account", receiver.accountNumber],
-        ["Account Name", receiver.accountName],
-        ["Recorded Location", receiver.recordedLocation],
-        ["Office / Yard", receiver.office],
-      ].filter(([, value]) => value),
-    [receiver],
-  );
 
   const requestLocation = useCallback(() => {
     setFormError("");
@@ -130,39 +83,22 @@ export default function Home() {
     requestLocation();
   }, [requestLocation]);
 
-  function openEmail(trimmedError: string, location: GpsPing) {
-    const mapsLink = `https://maps.google.com/?q=${location.latitude},${location.longitude}`;
+  function openTestEmail(location: GpsPing) {
     const body = [
-      "Please reactivate or refresh this receiver.",
-      "",
-      `On-Screen Error Code: ${trimmedError}`,
-      "",
-      "WORK SITE INFORMATION",
+      "Please reactivate or refresh this receiver.", "",
+      `Asset Number: ${asset}`,
+      `Requester Name: ${requesterName.trim()}`,
+      `Callback Phone: ${requesterPhone.trim()}`,
+      `On-Screen Error Code: ${errorCode.trim()}`,
       `Operator Name: ${operatorName.trim()}`,
       `Rig/Frac: ${rigFrac.trim()}`,
-      `Lease: ${lease.trim()}`,
-      "",
-      "RECEIVER INFORMATION",
-      `Asset Number: ${valueOrDash(receiver.asset)}`,
-      `Model: ${valueOrDash(receiver.model)}`,
-      `Receiver Type: ${valueOrDash(receiver.type)}`,
-      `Serial Number: ${valueOrDash(receiver.serial)}`,
-      `Receiver ID (RID): ${valueOrDash(receiver.rid)}`,
-      `Access Card: ${valueOrDash(receiver.card)}`,
-      `Rent Status: ${valueOrDash(receiver.rentState)}`,
-      `Current Account: ${valueOrDash(receiver.accountNumber)}`,
-      `Account Name: ${valueOrDash(receiver.accountName)}`,
-      `Recorded Location: ${valueOrDash(receiver.recordedLocation)}`,
-      `Office / Yard: ${valueOrDash(receiver.office)}`,
-      "",
-      "SCAN LOCATION",
+      `Lease: ${lease.trim()}`, "",
       `GPS Coordinates: ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}`,
       `GPS Accuracy: ${Math.round(location.accuracy)} meters`,
-      `Map: ${mapsLink}`,
+      `Map: https://maps.google.com/?q=${location.latitude},${location.longitude}`,
       `Captured: ${new Date(location.capturedAt).toLocaleString()}`,
     ].join("\n");
-    const subject = `${valueOrDash(receiver.asset)} / Service Request`;
-    window.location.href = `mailto:${TEST_RECIPIENT}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.location.href = `mailto:${TEST_RECIPIENT}?subject=${encodeURIComponent(`${asset} / Service Request`)}&body=${encodeURIComponent(body)}`;
   }
 
   async function submitRequest() {
@@ -170,6 +106,16 @@ export default function Home() {
     const trimmedOperator = operatorName.trim();
     const trimmedRigFrac = rigFrac.trim();
     const trimmedLease = lease.trim();
+    const trimmedRequester = requesterName.trim();
+    const trimmedPhone = requesterPhone.trim();
+    if (!asset) {
+      setFormError("Scan a receiver label with an asset number.");
+      return;
+    }
+    if (!trimmedRequester || !trimmedPhone) {
+      setFormError("Enter your name and callback phone number.");
+      return;
+    }
     if (!trimmedOperator || !trimmedRigFrac || !trimmedLease) {
       setFormError("Enter the Operator Name, Rig/Frac, and Lease.");
       return;
@@ -193,17 +139,9 @@ export default function Home() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          assetNumber: receiver.asset,
-          model: receiver.model,
-          receiverType: receiver.type,
-          serialNumber: receiver.serial,
-          rid: receiver.rid,
-          accessCard: receiver.card,
-          rentState: receiver.rentState,
-          accountNumber: receiver.accountNumber,
-          accountName: receiver.accountName,
-          recordedLocation: receiver.recordedLocation,
-          office: receiver.office,
+          assetNumber: asset,
+          requesterName: trimmedRequester,
+          requesterPhone: trimmedPhone,
           operatorName: trimmedOperator,
           rigFrac: trimmedRigFrac,
           lease: trimmedLease,
@@ -217,7 +155,7 @@ export default function Home() {
       const result = (await response.json()) as { error?: string };
       if (!response.ok) throw new Error(result.error || "Request was not saved.");
       setSubmitted(true);
-      openEmail(trimmedError, gps);
+      openTestEmail(gps);
     } catch (error) {
       setFormError(
         error instanceof Error
@@ -231,6 +169,9 @@ export default function Home() {
 
   const canCreateEmail = Boolean(
     gps &&
+      asset &&
+      requesterName.trim() &&
+      requesterPhone.trim() &&
       operatorName.trim() &&
       rigFrac.trim() &&
       lease.trim() &&
@@ -261,17 +202,22 @@ export default function Home() {
 
         <section className="receiver-summary">
           <span>Asset Number</span>
-          <strong>{valueOrDash(receiver.asset)}</strong>
-          {details.length > 0 && (
-            <dl>
-              {details.map(([label, value]) => (
-                <div className="detail-row" key={label}>
-                  <dt>{label}</dt>
-                  <dd>{valueOrDash(value)}</dd>
-                </div>
-              ))}
-            </dl>
-          )}
+          <strong>{valueOrDash(asset)}</strong>
+        </section>
+
+        <section className="worksite-fields" aria-label="Requester information">
+          <label htmlFor="requesterName">
+            <span>Requester Name <b>*</b></span>
+            <input id="requesterName" type="text" autoComplete="name" maxLength={120} required
+              placeholder="Enter your name" value={requesterName}
+              onChange={(event) => { setRequesterName(event.target.value); setFormError(""); }} />
+          </label>
+          <label htmlFor="requesterPhone">
+            <span>Callback Phone Number <b>*</b></span>
+            <input id="requesterPhone" type="tel" autoComplete="tel" maxLength={40} required
+              placeholder="Enter your phone number" value={requesterPhone}
+              onChange={(event) => { setRequesterPhone(event.target.value); setFormError(""); }} />
+          </label>
         </section>
 
         <section className="worksite-fields" aria-label="Work site information">
@@ -392,16 +338,17 @@ export default function Home() {
             disabled={!canCreateEmail || submitting || submitted}
           >
             {submitted
-              ? "Request Submitted"
+                ? "Request Submitted"
               : submitting
                 ? "Submitting…"
                 : "Submit Service Request"}
           </button>
         </div>
 
-        <p className="privacy-note">
-          No login is required. The request is recorded before the prefilled
-          email opens. Review the email, then tap Send.
+        <p className="privacy-note" role="status">
+          {submitted
+            ? "Request saved. For testing, review the email draft and tap Send."
+            : "For testing, Submit saves your request and opens an email draft. Review it and tap Send."}
         </p>
         <footer className="service-footer">
           <img src="/tanmar-emblem-tight.png" alt="" />

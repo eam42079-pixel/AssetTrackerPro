@@ -1,6 +1,6 @@
 # TanMar Receiver Control — AssetTrackerPro
 
-Source handoff for TanMar's DIRECTV asset tracker and QR service-request application, prepared September 23, 2026.
+Source handoff for TanMar's DIRECTV asset tracker and QR service-request application, updated September 24, 2026.
 
 The tracker comes from published **version 55**; the companion service app comes from **version 6**. This handoff branch replaces the old three-file prototype; the previous version remains in Git history.
 
@@ -55,7 +55,7 @@ npx wrangler d1 migrations apply DB --local --config wrangler.local.json --persi
 npm run dev -- --host 127.0.0.1 --port 5174
 ```
 
-Open `http://localhost:5173/` and create the first administrator with a new test PIN. Use an isolated browser profile. The QR form is at `http://localhost:5174/`; it expects receiver details in the URL and requires location permission. Phone scans need a reachable HTTPS service address instead of localhost.
+Open `http://localhost:5173/` and create the first administrator with a new test PIN. Use an isolated browser profile. The QR form is at `http://localhost:5174/`; it expects only the asset number in the URL and requires location permission. Phone scans need a reachable HTTPS service address instead of localhost.
 
 ## Build
 
