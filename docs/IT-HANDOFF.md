@@ -23,6 +23,8 @@ The tracker is an HTML/CSS/JavaScript interface served by Vinext. `/` redirects 
 
 The QR service is a separate Vinext/React app and Worker with its own D1 database, also bound as `DB`. Its public form displays the asset number and collects requester name, callback phone, operator, rig/frac, lease, error code and GPS. Submit records the request and, during testing, opens a prefilled email draft containing only those public details. The tester must tap Send. For production, IT must replace the draft with server-side email and look up account number, receiver identifiers and rent status from the private tracker registry before sending. This code does not yet send email automatically or include an automatic Monday email job.
 
+The production email should retain the original subject (`<asset number> / Service Request`), recipient currently configured as `earrieta@tanmarcompanies.com`, opening request to reactivate or refresh, on-screen error code, operator name, rig/frac, lease, receiver asset/model/type/serial/RID/access card, rent status, account number/name, recorded location, office/yard, GPS coordinates and accuracy, map link and capture time. Add requester name and callback phone. Resolve receiver and account fields by asset number inside the trusted tracker server, then send the full email to staff; never send those fields to the public form or its browser email draft.
+
 | Tracker endpoint | Function |
 | --- | --- |
 | `/api/auth` | First-admin setup, sign in, current session, sign out |
